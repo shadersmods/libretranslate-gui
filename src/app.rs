@@ -179,6 +179,11 @@ pub fn request_close(mut state: Signal<AppState>) {
                 };
                 state.write().closing = false;
                 state.write().error("close_save_failed", details);
+                // Official Dioxus hides the window on a native close request.
+                // Bring the unchanged draft and save error back for retry.
+                let window = dioxus::desktop::window();
+                window.set_visible(true);
+                window.set_focus();
             }
         }
     });

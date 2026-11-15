@@ -67,7 +67,7 @@ Developer requirements:
 - **macOS:** Apple command line tools (`xcode-select --install`).
 - **Ubuntu/Debian:** `build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libxdo-dev libssl-dev`. A graphical session is required.
 
-Windows needs the Microsoft Edge WebView2 runtime, normally included with modern Windows. Linux needs the GTK/WebKitGTK runtime libraries corresponding to the development packages above. macOS uses system WebKit. Dioxus components are pinned to an upstream Git revision in Cargo.lock. Use `dx bundle --platform desktop --release` for native packages; `Dioxus.toml` supplies the bundle icon and metadata.
+Windows needs the Microsoft Edge WebView2 runtime, normally included with modern Windows. Linux needs the GTK/WebKitGTK runtime libraries corresponding to the development packages above. macOS uses system WebKit. The app uses official Dioxus 0.7.10 from crates.io, with dependency versions locked in `Cargo.lock`; no framework fork or local `vendor/` directory is required. Dioxus Components is pinned separately to its official upstream Git revision. Use `dx bundle --platform desktop --release` for native packages; `Dioxus.toml` supplies the bundle icon and metadata.
 
 GitHub Actions checks formatting, lints, runs tests, builds releases on all three systems, and uploads executable artifacts. These are unsigned executables, not installer packages. macOS and Linux require validation on their own systems; a Windows build alone does not establish compatibility there. ARM64 runtime downloads are implemented but are outside the current CI matrix.
 

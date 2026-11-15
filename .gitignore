@@ -1,4 +1,5 @@
 /target/
+/vendor/
 /.tools/
 /.runtime-test/
 /.impeccable/review/

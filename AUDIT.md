@@ -2,9 +2,28 @@
 
 Reviewed the 0.2.7 app and applied the fixes below to the working tree. This is an unpublished audit build; the existing distribution and its instances were not replaced.
 
+## Current follow-up status
+
+The app now uses **unmodified official Dioxus 0.7.10**, the latest stable release checked on 15 November 2026. The framework fork and vendored patches are no longer dependencies. This removes the listener-shutdown fix described below, so the previously reproduced upstream Winsock 10093 shutdown panic remains a known issue. The nine patched Dioxus tests and clean-shutdown evidence below apply only to the earlier patched build.
+
+The application-level defects recorded in this report remain fixed. Before the return to official Dioxus, checks passed **112 app tests, 9 patched Dioxus tests, and 20 model-synchronization tests**, plus formatting and clippy with warnings denied. The six opt-in/platform tests remain excluded from the default Rust run. Isolated real-runtime translation and the LibreTranslate 1.9.1/1.9.5 installation-and-upgrade test were run separately and passed.
+
+Additional fixes include acknowledged save-before-close with retry after a write failure, staged runtime upgrades that retain the working environment, model-cache validation and bounded storage retention, correct language aliases and metrics-series matching, and cancellable file transfers with byte progress. With official Dioxus, native close requests hide the window while saving; a failed save restores the window and its edited draft for retry. The app's own close button keeps the window visible until saving succeeds. Earlier Windows verification used the patched framework and must not be treated as verification of this updated native-close path.
+
+The updater now has an on-disk replacement journal and startup recovery. Regression tests simulate interruption after each replaced file and verify repeatable rollback. This addresses the earlier missing-journal follow-up; it does not establish physical power-loss durability on every filesystem.
+
+Besides the upstream shutdown issue, remaining work consists of verification and performance measurements:
+
+- Run native macOS/Linux lifecycle checks and the fresh-install/model-download matrix. A manually triggered three-platform runtime workflow is present but has not been executed remotely.
+- Verify CUDA inference, native DPI/text scaling, and broader screen-reader behavior.
+- Measure sustained CPU/CUDA request latency, throughput, and memory use with representative model pairs and large files.
+- Exercise actual power-loss recovery, public release downloads, and the Windows symlink test on a host with the required privileges.
+
+The upstream request-size and memory constraints described under **Large files** still apply. These limits and unexecuted checks are not evidence of an unfixed application defect.
+
 ## Result
 
-The first pass found **13 issues: 6 P1 and 7 P2**. All 13 are now fixed, including the two previously open deletion and updater-storage findings. Follow-up testing found and fixed the additional failures below. The latest verification also closed shrinking-upload and Windows storage-alias gaps. Disk-backed results remove the GUI's 50 MiB file limit, and Dioxus's listener has explicit shutdown. No P0 issue was found in the exercised paths.
+The first pass found **13 issues: 6 P1 and 7 P2**. All 13 are now fixed, including the two previously open deletion and updater-storage findings. Follow-up testing found and fixed the additional failures below. The latest verification also closed shrinking-upload and Windows storage-alias gaps. Disk-backed results remove the GUI's 50 MiB file limit. The separate Dioxus listener fix was removed when returning to the official framework. No P0 issue was found in the exercised paths.
 
 The review covered instance configuration and lifecycle, autosave, local translation requests, native file dialogs, model synchronization, downloads, metrics, logs, localization, window controls, and the update helper. Windows checks used isolated data, local HTTP fixtures, and a real LibreTranslate 1.9.6 runtime with copied English/Romanian models. Source inspection and regression tests covered failure paths that are difficult to produce through the interface.
 
@@ -19,7 +38,7 @@ The implementation preserves the existing single rail, compact title bar, local 
 | P1 | Rendering a downloaded file cloned its entire buffer, up to 50 MiB per render. | Results now share an anonymous temporary file, with no payload copy when views clone state. Tests verify shared ownership, repeated/concurrent saves, and release after the last owner drops. |
 | P1 | The bounded manager event queue silently dropped control notices when the renderer did not drain it. Losing a save acknowledgement could leave autosave waiting indefinitely. | Control events now use a reliable channel; unchanged periodic snapshots are coalesced. A test queues 40 saves without reading events and receives all 40 acknowledgements. See [manager.rs](D:/minecraft/libretranslate-gui/src/manager.rs). |
 | P1 | Saving a translated file directly truncated an existing destination before the write succeeded. A disk/write failure could destroy its previous content. | Write and sync a temporary file beside the destination, then rename it into place. An injected partial-write failure preserves the original and removes the temporary file. |
-| P1 | The updater moved the current executable into backup before installing its replacement, leaving a period with no executable at its normal path. | Copy the backup first and replace through rename; rollback also avoids deleting the destination before restoring it. Existing replacement/rollback tests pass. This narrows the interruption risk; a power-loss recovery journal remains future work. See [self_update.rs](D:/minecraft/libretranslate-gui/src/self_update.rs). |
+| P1 | The updater moved the current executable into backup before installing its replacement, leaving a period with no executable at its normal path. | Copy the backup first and replace through rename; rollback also avoids deleting the destination before restoring it. Replacement/rollback tests pass. An on-disk journal and startup recovery now cover interrupted replacements, with repeatable rollback regression coverage. Physical power-loss testing remains outstanding. See [self_update.rs](D:/minecraft/libretranslate-gui/src/self_update.rs). |
 | P2 | The UI wrote its global state every 150 ms while idle and copied the downloads map on every tick. | Collect updates before taking a reactive write; copy downloads only when changed. Idle ticks no longer dirty the UI. Tests also cover autosave wakeups and expiry of Saved feedback. Window maximize state has its own change check. See [state.rs](D:/minecraft/libretranslate-gui/src/state.rs). |
 | P2 | Follow new log entries changed only in memory and reset after restarting. | Persist that preference immediately while preserving unfinished folder edits. Verified on disk and in a regression test. |
 | P2 | Text/Files tabs had no corresponding tab panels. Workspace and mode panels also lacked explicit names tied to their tabs. | Use official TabContent components with named associations. The built app exposes matching control/panel IDs; settled ArrowRight focus reaches Files. |
@@ -60,17 +79,19 @@ Follow-up completion checks passed **102 app tests**, including **19 file/API te
 
 Short process CPU/memory samples were collected, but the before/after runs differed in window visibility and visited screens. They are not comparable enough to claim an overall CPU or memory percentage improvement.
 
-## Windows framework shutdown fix
+## Historical Windows framework shutdown fix — no longer applied
+
+This section records the earlier patched build. The current app uses official Dioxus 0.7.10 and does not include this fix. The upstream shutdown panic is therefore an open dependency issue again.
 
 Normal closure of the previous build logged a background-thread panic in dioxus-desktop 0.7.10's edit-socket listener: Winsock error 10093 while binding a replacement socket. It occurred during shutdown, including after helper-launched sessions. Both replacement and rollback had completed, the tracked hashes were preserved, and the targeted processes exited. Before-fix evidence: [normal close](D:/minecraft/libretranslate-gui/.runtime-test/v029-final-live.err), [post-update close](D:/minecraft/libretranslate-gui/.runtime-test/v029-final-helper-success.err).
 
 The dependency's detached accept loop retried accept failures by binding again. A local patch now owns, stops, and joins that listener on LoopDestroyed, before process teardown. A loopback wakeup interrupts accept without idle polling. Initial HTTP/authentication has a one-second timeout because Windows does not cancel an already pending read through a duplicate socket; the timeout is cleared before normal edit traffic. Reconnect failures use cancellation-aware backoff. Genuine listener panics still propagate.
 
-The vendored 0.7.10 source retains its licenses and provenance. Nine listener/protocol tests pass, including authenticated edit/ack behavior beyond the handshake deadline. [Patch scope and removal criteria](D:/minecraft/libretranslate-gui/vendor/dioxus-desktop/PATCHES.md).
+The former patch is preserved separately in `shadersmods/dioxus` at commit `e84f2bb90b1736ccdb47d5255f878516e46600e2`; the app does not use it. Its nine listener/protocol tests covered authenticated edit/ack behavior beyond the handshake deadline. [Historical patch scope](https://github.com/shadersmods/dioxus/blob/e84f2bb90b1736ccdb47d5255f878516e46600e2/packages/desktop/PATCHES.md).
 
 The packaged Windows build passed **four consecutive open/close cycles**, each with exit code 0 and empty stderr. Local update replacement and forced rollback also restarted and closed without the previous panic. [Close-cycle results](D:/minecraft/libretranslate-gui/.runtime-test/ui-v030/shutdown-results.json), [helper restart results](D:/minecraft/libretranslate-gui/.runtime-test/v030-helper-results.json).
 
-## Validation
+## Earlier validation evidence
 
 | Area | Evidence |
 |---|---|
@@ -102,7 +123,7 @@ The packaged Windows build passed **four consecutive open/close cycles**, each w
 
 ## Limits and next checks
 
-Four existing opt-in runtime tests were not rerun. The new real-runtime test was invoked separately against an explicitly prepared isolated fixture. Native macOS/Linux behavior, a fresh-install platform matrix, CUDA inference, DPI/text-scaling combinations, and public release downloads remain untested in this pass. The Windows symlink test is explicitly ignored because the host lacks symlink privileges; the Unix version remains enabled but was not run here.
+The isolated real-runtime test and the selected-version installation/upgrade test have passed separately from the default suite. Native macOS/Linux behavior, a fresh-install/model-download platform matrix, CUDA inference, DPI/text-scaling combinations, and public release downloads remain untested here. The Windows symlink test is explicitly ignored because the host lacks symlink privileges; the Unix version remains enabled but was not run here.
 
 Update storage deliberately retains unknown legacy folders and failed stages containing rollback backups. Their ownership/recovery needs cannot safely be inferred. Replacement and rollback were exercised with a local helper and real process restart, but power-loss recovery between every filesystem operation is not guaranteed.
 

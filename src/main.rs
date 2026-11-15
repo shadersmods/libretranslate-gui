@@ -102,7 +102,9 @@ fn main() {
         })
         .with_icon(icon)
         .with_menu(None)
-        .with_close_behaviour(dioxus::desktop::WindowCloseBehaviour::WindowStaysOpen)
+        // Keep the event loop alive until pending saves are acknowledged. Native
+        // close requests hide the window; a failed save makes it visible again.
+        .with_close_behaviour(dioxus::desktop::WindowCloseBehaviour::WindowHides)
         .with_background_color((0, 0, 0, 0))
         .with_custom_event_handler(move |event, _| {
             #[cfg(windows)]

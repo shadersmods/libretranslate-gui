@@ -40,9 +40,6 @@ windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Globali
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-[patch.crates-io]
-dioxus-desktop = { path = "vendor/dioxus-desktop" }
-
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
 

@@ -10,7 +10,7 @@ Upstream authors: Dioxus Labs and DogeDark. Licensed under MIT OR Apache-2.0. Th
 
 ## Dioxus desktop
 
-`vendor/dioxus-desktop` contains Dioxus desktop 0.7.10 with a local listener-lifecycle patch for Windows shutdown. The upstream MIT and Apache-2.0 licenses and source provenance are preserved there. See `vendor/dioxus-desktop/PATCHES.md` for the changes and removal criteria.
+The app uses unmodified Dioxus desktop 0.7.10 from crates.io. [Upstream source](https://github.com/DioxusLabs/dioxus/tree/v0.7.10/packages/desktop). Upstream authors: Dioxus Labs and contributors. Licensed under MIT OR Apache-2.0; the license texts are included in `licenses/dioxus-desktop-MIT.txt` and `licenses/dioxus-desktop-APACHE.txt`.
 
 # Flag icons
 
