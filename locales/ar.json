@@ -316,6 +316,8 @@
   "translator_files": "ملفات",
   "translator_auto": "يترجم تلقائيا عند التوقف عن الكتابة قليلا.",
   "translator_install_first": "ثبّت بيئة التشغيل، ثم شغّل الخادم للترجمة هنا.",
+  "translator_drop_file": "أفلت ملفًا هنا",
+  "translator_file_single": "أفلت ملفًا واحدًا في كل مرة.",
   "translator_choose_file": "اختيار ملف",
   "translator_files_disabled": "ترجمة الملفات معطّلة في الإعدادات المتقدمة.",
   "translator_file_size": "اختر ملفًا غير فارغ يمكن قراءته.",

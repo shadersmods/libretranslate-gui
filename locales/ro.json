@@ -316,6 +316,8 @@
   "translator_files": "Fișiere",
   "translator_auto": "Traduce automat când te oprești din scris.",
   "translator_install_first": "Instalează mediul de rulare, apoi pornește serverul ca să traduci aici.",
+  "translator_drop_file": "Trage un fișier aici",
+  "translator_file_single": "Trage câte un singur fișier.",
   "translator_choose_file": "Alege un fișier",
   "translator_files_disabled": "Traducerea fișierelor este dezactivată în Setări avansate.",
   "translator_file_size": "Alege un fișier care nu este gol și poate fi citit.",

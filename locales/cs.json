@@ -316,6 +316,8 @@
   "translator_files": "Soubory",
   "translator_auto": "Překládá automaticky, když na chvíli přestanete psát.",
   "translator_install_first": "Nainstalujte běhové prostředí a spusťte server, abyste zde mohli překládat.",
+  "translator_drop_file": "Přetáhněte soubor sem",
+  "translator_file_single": "Přetahujte vždy jen jeden soubor.",
   "translator_choose_file": "Vybrat soubor",
   "translator_files_disabled": "Překlad souborů je vypnutý v Pokročilých nastaveních.",
   "translator_file_size": "Vyberte neprázdný soubor, který lze přečíst.",

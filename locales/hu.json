@@ -316,6 +316,8 @@
   "translator_files": "Fájlok",
   "translator_auto": "Automatikusan fordít, amikor szünetet tartasz a gépelésben.",
   "translator_install_first": "Telepítsd a futtatókörnyezetet, majd indítsd el a szervert az itteni fordításhoz.",
+  "translator_drop_file": "Húzz ide egy fájlt",
+  "translator_file_single": "Egyszerre egy fájlt húzz ide.",
   "translator_choose_file": "Fájl kiválasztása",
   "translator_files_disabled": "A fájlfordítás ki van kapcsolva a Haladó beállításokban.",
   "translator_file_size": "Válassz egy nem üres, olvasható fájlt.",

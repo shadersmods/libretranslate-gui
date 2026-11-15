@@ -431,7 +431,7 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
                     onchange:move |value|{let mut s=state.write();let draft=s.translations.entry(id).or_default();draft.target=value;draft.changed();}}
                 }
             }
-            TabContent{index:0usize,value:"text",aria_labelledby:"translator-mode-text-tab",class:"translator-mode-panel",div {class:"translator-panes",
+            TabContent{index:0usize,value:"text",aria_labelledby:"translator-mode-text-tab",tabindex:"-1",class:"translator-mode-panel",div {class:"translator-panes",
                 div {class:"translator-pane",
                     textarea {id:"translator-input",aria_label:locale.text("translator_input"),placeholder:locale.text("translator_input"),dir:"auto",value:draft.input.clone(),oncompositionstart:move |_|composing.set(true),oncompositionend:move |_|{composing.set(false);state.write().translations.entry(id).or_default().changed();},oninput:move |event|{
                         let mut s=state.write();let draft=s.translations.entry(id).or_default();draft.input=event.value();draft.changed();
@@ -454,7 +454,7 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
                 }
                 p{class:"field-hint translator-auto",role:"status",if pending{span{class:"spinner",aria_hidden:"true"}}{locale.text(if pending{"translator_working"}else{"translator_auto"})}}
             }}
-            TabContent{index:1usize,value:"files",aria_labelledby:"translator-mode-files-tab",class:"translator-mode-panel",crate::translator_files::FileTranslator{instance:instance(),status:status(),source:draft.source,target:draft.target}}
+            TabContent{index:1usize,value:"files",aria_labelledby:"translator-mode-files-tab",tabindex:"-1",class:"translator-mode-panel",crate::translator_files::FileTranslator{instance:instance(),status:status(),source:draft.source,target:draft.target}}
         }
         }
     }}

@@ -316,6 +316,8 @@
   "translator_files": "फ़ाइलें",
   "translator_auto": "लिखते समय थोड़ा रुकने पर अपने आप अनुवाद होता है।",
   "translator_install_first": "यहाँ अनुवाद करने के लिए रनटाइम इंस्टॉल करें और सर्वर शुरू करें।",
+  "translator_drop_file": "यहाँ फ़ाइल छोड़ें",
+  "translator_file_single": "एक बार में एक फ़ाइल छोड़ें।",
   "translator_choose_file": "फ़ाइल चुनें",
   "translator_files_disabled": "उन्नत सेटिंग में फ़ाइल अनुवाद बंद है।",
   "translator_file_size": "ऐसी फ़ाइल चुनें जो खाली न हो और पढ़ी जा सके।",

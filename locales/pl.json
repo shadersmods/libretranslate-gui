@@ -316,6 +316,8 @@
   "translator_files": "Pliki",
   "translator_auto": "Tłumaczy automatycznie, gdy zrobisz przerwę w pisaniu.",
   "translator_install_first": "Zainstaluj środowisko i uruchom serwer, aby tutaj tłumaczyć.",
+  "translator_drop_file": "Upuść plik tutaj",
+  "translator_file_single": "Upuszczaj po jednym pliku.",
   "translator_choose_file": "Wybierz plik",
   "translator_files_disabled": "Tłumaczenie plików jest wyłączone w ustawieniach Zaawansowanych.",
   "translator_file_size": "Wybierz niepusty plik, który można odczytać.",

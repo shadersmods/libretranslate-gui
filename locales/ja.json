@@ -316,6 +316,8 @@
   "translator_files": "ファイル",
   "translator_auto": "入力を止めると自動で翻訳します。",
   "translator_install_first": "実行環境をインストールし、サーバーを起動すると、ここで翻訳できます。",
+  "translator_drop_file": "ここにファイルをドロップ",
+  "translator_file_single": "一度に1つのファイルをドロップしてください。",
   "translator_choose_file": "ファイルを選択",
   "translator_files_disabled": "詳細設定でファイル翻訳が無効になっています。",
   "translator_file_size": "空でなく、読み取れるファイルを選んでください。",

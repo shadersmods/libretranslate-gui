@@ -316,6 +316,8 @@
   "translator_files": "Dateien",
   "translator_auto": "Übersetzt automatisch, sobald Sie eine Schreibpause machen.",
   "translator_install_first": "Installieren Sie die Laufzeitumgebung und starten Sie den Server, um hier zu übersetzen.",
+  "translator_drop_file": "Datei hier ablegen",
+  "translator_file_single": "Bitte jeweils nur eine Datei ablegen.",
   "translator_choose_file": "Datei auswählen",
   "translator_files_disabled": "Die Dateiübersetzung ist unter Erweitert deaktiviert.",
   "translator_file_size": "Wählen Sie eine lesbare Datei, die nicht leer ist.",

@@ -316,6 +316,8 @@
   "translator_files": "Files",
   "translator_auto": "Translates automatically when you pause typing.",
   "translator_install_first": "Install the runtime, then start the server to translate here.",
+  "translator_drop_file": "Drop a file here",
+  "translator_file_single": "Drop one file at a time.",
   "translator_choose_file": "Choose a file",
   "translator_files_disabled": "File translation is disabled in Advanced.",
   "translator_file_size": "Choose a non-empty file the app can read.",

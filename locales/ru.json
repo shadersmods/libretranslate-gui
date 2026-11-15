@@ -316,6 +316,8 @@
   "translator_files": "Файлы",
   "translator_auto": "Переводит автоматически, когда вы делаете паузу в наборе текста.",
   "translator_install_first": "Установите среду и запустите сервер, чтобы переводить здесь.",
+  "translator_drop_file": "Перетащите файл сюда",
+  "translator_file_single": "Перетаскивайте по одному файлу.",
   "translator_choose_file": "Выбрать файл",
   "translator_files_disabled": "Перевод файлов отключён в дополнительных настройках.",
   "translator_file_size": "Выберите непустой файл, доступный для чтения.",

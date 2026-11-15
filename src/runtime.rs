@@ -579,7 +579,7 @@ pub fn install(
     if let Err(error) = clean_runtimes(&dir, &previous, &stage) {
         log(format!("Runtime cleanup deferred: {error:#}"));
     }
-    log("Runtime installed. Start the instance to download its language models.".into());
+    log("Runtime and selected language models installed.".into());
     Ok(())
 }
 
@@ -638,6 +638,16 @@ fn install_staged(
     configure(&mut cmd, paths, dir)?;
     cmd.args(["-c","import sys; from importlib.metadata import version; from libretranslate.main import get_parser; get_parser().parse_args([]); assert version('libretranslate') == sys.argv[1], 'Installed LibreTranslate version does not match the selection'"])
         .arg(&instance.server.libretranslate_version);
+    run(cmd, cancel, log)?;
+    log("Installing selected language models…".into());
+    recover_model_transactions(dir)?;
+    let mut cmd = command(python(stage));
+    configure(&mut cmd, paths, dir)?;
+    cmd.arg("-c")
+        .arg(format!(
+            "{CUDA_BOOTSTRAP}\n{API_KEY_BOOTSTRAP}\n{MODEL_MANAGEMENT}\nsync_models(sys.argv[1].split(','), prune=True)"
+        ))
+        .arg(&instance.languages);
     run(cmd, cancel, log)?;
     fs::write(
         stage.join("installed-version"),

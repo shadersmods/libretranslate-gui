@@ -117,8 +117,6 @@ pub fn ModelsPanel(
             None=>rsx!{p{class:"muted",{locale.text("loading_models")}}},
             Some(Err(error))=>rsx!{p{class:"field-error",{locale.text("models_load_failed")}} details{summary{{locale.text("technical_details")}} pre{"{error}"}}},
             Some(Ok(snapshot))=>rsx!{
-                if let Some(bytes)=snapshot.storage_bytes {p{class:"field-hint",{locale.text("instance_storage").replace("{size}",&models::format_bytes(bytes))}}}
-                p{class:"field-hint",{locale.text("storage_retention_hint")}}
                 if snapshot.cached { p { class:"field-hint",{locale.text("models_cached_catalog")} } }
                 if snapshot.rows.is_empty() { p {class:"muted",{locale.text("models_no_pairs")}} }
                 else { div { class:"model-table-scroll", table { class:"model-table",
@@ -131,6 +129,10 @@ pub fn ModelsPanel(
                         td { span {class:"cell-label",{locale.text("model_download_size")}} if let Some(url)=row.download_url {DownloadSize{url,revision:refresh()}}else{{locale.text("size_unknown")}} }
                     }} }
                 } } }
+                div {class:"model-storage-notes",
+                    if let Some(bytes)=snapshot.storage_bytes {p{class:"field-hint",{locale.text("instance_storage").replace("{size}",&models::format_bytes(bytes))}}}
+                    p{class:"field-hint",{locale.text("storage_retention_hint")}}
+                }
             },
         }
     } }

@@ -425,6 +425,7 @@ impl Actor {
                     !self.children.contains_key(&id),
                     "Stop the instance before installing."
                 );
+                self.downloads.lock().unwrap().remove(&id);
                 self.installing = Some(id);
                 self.status.insert(id, Status::Installing);
                 let paths = self.paths.clone();
@@ -694,6 +695,19 @@ mod tests {
         };
         println!("Testing translation device: {:?}", instance.device);
         runtime::install(&paths, &instance, &AtomicBool::new(false), &log).unwrap();
+        let dir = runtime::instance_dir(&paths.root, instance.id);
+        assert!(dir.join("model-languages.json").is_file());
+        let inventory = crate::models::inspect(
+            &paths.root,
+            &paths.cache,
+            instance.id,
+            &instance.languages,
+            false,
+        )
+        .unwrap();
+        assert_eq!(inventory.rows.len(), 2);
+        assert!(inventory.rows.iter().all(|row| row.installed.is_some()));
+        assert!(std::net::TcpStream::connect(("127.0.0.1", instance.port)).is_err());
         let mut process = runtime::start(&paths, &instance, &log).unwrap();
         let deadline = Instant::now() + Duration::from_secs(600);
         while !healthy(&instance.url()) {

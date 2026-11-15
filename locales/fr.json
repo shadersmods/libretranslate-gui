@@ -316,6 +316,8 @@
   "translator_files": "Fichiers",
   "translator_auto": "La traduction se lance automatiquement lorsque vous faites une pause.",
   "translator_install_first": "Installez l'environnement, puis démarrez le serveur pour traduire ici.",
+  "translator_drop_file": "Déposez un fichier ici",
+  "translator_file_single": "Déposez un seul fichier à la fois.",
   "translator_choose_file": "Choisir un fichier",
   "translator_files_disabled": "La traduction de fichiers est désactivée dans les paramètres avancés.",
   "translator_file_size": "Choisissez un fichier non vide et lisible.",

@@ -3,7 +3,7 @@ use crate::model_ui::ModelsPanel;
 use crate::{
     components::{
         Button, Choice, DialogContent, DialogDescription, DialogRoot, DialogTitle, Dropdown, Icon,
-        Input, LanguageFlag, Switch, TabContent, TabList, TabTrigger, Tabs,
+        Input, InstanceIcon, LanguageFlag, Switch, TabContent, TabList, TabTrigger, Tabs,
     },
     gpu,
     i18n::Locale,
@@ -260,12 +260,6 @@ fn RailInstance(view: crate::manager::View, selected: bool) -> Element {
     let locale = s.locale;
     let id = view.instance.id;
     let name = view.instance.name.clone();
-    let initials = name
-        .split_whitespace()
-        .filter_map(|word| word.chars().find(|ch| ch.is_alphanumeric()))
-        .take(2)
-        .collect::<String>()
-        .to_uppercase();
     let tooltip_id = use_hook(|| format!("instance-preview-{}", Uuid::new_v4()));
     let anchor_id = tooltip_id.clone();
     let mut active = use_context::<crate::components::TooltipController>().0;
@@ -278,13 +272,13 @@ fn RailInstance(view: crate::manager::View, selected: bool) -> Element {
             Button {class:if selected {"rail-instance selected"}else{"rail-instance"},aria_label:name.clone(),aria_describedby:tooltip_id.clone(),"data-instance-preview":tooltip_id.clone(),onclick:move|_|state.write().select(id),
                 onfocus:move |_|active.set(Some(focus_id.clone())),
                 onblur:move |_|crate::components::dismiss_tooltip(active,&blur_id),
-                span {class:"instance-avatar","{initials}" span {class:"status-dot {status_class(view.status)}"}}
+                span {class:"instance-avatar",InstanceIcon {languages:view.instance.languages.clone()} span {class:"status-dot {status_class(view.status)}"}}
                 span {class:"rail-label rail-instance-details",strong {"{name}"} span {{locale.status(view.status)} " · :{view.instance.port}"}}
             }
         }
         tooltip::TooltipContent {id:tooltip_id,class:"app-tooltip instance-tooltip",side:dioxus_primitives::ContentSide::Right,
             div {onmounted:move |_|crate::components::position_tooltip(anchor_id.clone(),Some(format!("[data-instance-preview=\"{anchor_id}\"]")),active),
-                div {class:"preview-heading",img {src:icon_uri(),alt:""} strong {"{name}"}}
+                div {class:"preview-heading",InstanceIcon {languages:view.instance.languages.clone()} strong {"{name}"}}
                 code {class:"preview-endpoint","{view.instance.url()}"}
                 div {class:"card-languages",for code in view.instance.languages.split(',').take(6) {span {class:"language-chip",LanguageFlag{code:code.to_string()} "{code}"}} if view.instance.languages.split(',').count()>6 {span {class:"language-chip","+{view.instance.languages.split(',').count()-6}"}}}
                 div {class:"preview-meta",span {class:"status-badge {status_class(view.status)}",span {class:"status-dot {status_class(view.status)}"} {locale.status(view.status)}}
@@ -709,7 +703,7 @@ fn Options() -> Element {
                 if s.app_update.is_some(){Button{class:"text-button",onclick:move|_|state.write().app_update_open=true,{locale.text("app_changelog")}}}
             }
             dl {class:"about-details", dt {{locale.text("creator")}} dd {"Neo"} dt {{locale.text("website")}} dd {
-                a {class:"about-website", href:"https://shadersmods.com/", onclick:move |event| {event.prevent_default(); if let Err(error)=webbrowser::open("https://shadersmods.com/"){state.write().error("operation_failed",error.to_string());}}, "shadersmods.com" Icon {kind:"external"} }
+                a {class:"about-website", href:"https://github.com/shadersmods/libretranslate-gui", onclick:move |event| {event.prevent_default(); if let Err(error)=webbrowser::open("https://github.com/shadersmods/libretranslate-gui"){state.write().error("operation_failed",error.to_string());}}, "github.com/shadersmods/libretranslate-gui" Icon {kind:"external"} }
             } }
         }
     } }
@@ -810,7 +804,7 @@ fn Library() -> Element {
                     let card_url = copy_url.trim_start_matches("http://").to_owned();
                     let cuda_missing = view.instance.device == Device::Cuda && !s.gpu.as_ref().is_some_and(|gpu| gpu.available());
                     rsx! { article { key: "{id}", class: "instance-card",
-                        div { class: "card-heading", Button { class: "card-open", aria_label: view.instance.name.clone(), title: view.instance.name.clone(), onclick: move |_| state.write().select(id), img { src: ICON.to_string(), alt: "", width: "52", height: "52" } h2 { "{view.instance.name}" } }
+                        div { class: "card-heading", Button { class: "card-open", aria_label: view.instance.name.clone(), title: view.instance.name.clone(), onclick: move |_| state.write().select(id), InstanceIcon {languages:view.instance.languages.clone()} h2 { "{view.instance.name}" } }
                             Button { class: "delete-instance", disabled: busy || s.pending, aria_label: format!("{}: {}", locale.text("remove_instance"), view.instance.name), title: locale.text("remove_instance"), onclick: move |_| state.write().remove = Some(id), Icon { kind: "trash" } }
                         }
                         div { class: "card-endpoint", code { "{card_url}" } Button { class: "endpoint-copy", aria_label: format!("{}: {}", locale.text("copy_url"), view.instance.name), title: locale.text("copy_url"), onclick: move |_| state.write().copy(copy_url.clone()), Icon { kind: "copy" } } }

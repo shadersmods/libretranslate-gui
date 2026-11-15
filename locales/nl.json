@@ -316,6 +316,8 @@
   "translator_files": "Bestanden",
   "translator_auto": "Vertaalt automatisch zodra je even stopt met typen.",
   "translator_install_first": "Installeer de runtime en start de server om hier te vertalen.",
+  "translator_drop_file": "Sleep hier een bestand naartoe",
+  "translator_file_single": "Sleep één bestand tegelijk.",
   "translator_choose_file": "Bestand kiezen",
   "translator_files_disabled": "Bestandsvertaling is uitgeschakeld bij Geavanceerd.",
   "translator_file_size": "Kies een leesbaar bestand dat niet leeg is.",

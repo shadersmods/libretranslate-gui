@@ -316,6 +316,8 @@
   "translator_files": "文件",
   "translator_auto": "停止输入片刻后自动翻译。",
   "translator_install_first": "请先安装运行环境，再启动服务器以在此翻译。",
+  "translator_drop_file": "将文件拖放到此处",
+  "translator_file_single": "请一次拖放一个文件。",
   "translator_choose_file": "选择文件",
   "translator_files_disabled": "文件翻译已在高级设置中关闭。",
   "translator_file_size": "请选择可读取的非空文件。",

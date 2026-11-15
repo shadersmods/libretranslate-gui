@@ -27,6 +27,7 @@ staging.mkdir(parents=True, exist_ok=False)
 shutil.copy2(candidates[0], staging / executable)
 shutil.copytree(candidates[0].parent / "assets", staging / "assets")
 shutil.copytree(root / "licenses", staging / "licenses")
+shutil.copytree(root / "docs", staging / "docs")
 for filename in ("README.md", "THIRD_PARTY_NOTICES.md"):
     shutil.copy2(root / filename, staging / filename)
 (staging / "locales").mkdir()

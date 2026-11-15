@@ -5,6 +5,7 @@ use crate::{
     state::AppState,
     translator::{self, ApiError},
 };
+use dioxus::html::HasFileData;
 use dioxus::prelude::*;
 use dioxus_core::spawn_forever;
 use serde::Deserialize;
@@ -139,6 +140,21 @@ impl Draft {
     pub fn cancel(&self) {
         if let Some(transfer) = &self.transfer {
             transfer.cancel();
+        }
+    }
+    fn select_file(&mut self, path: PathBuf, extensions: &[String]) {
+        if !path
+            .metadata()
+            .is_ok_and(|metadata| metadata.is_file() && metadata.len() > 0)
+        {
+            self.error = Some("translator_file_size");
+        } else if !supported_extension(&path, extensions) {
+            self.error = Some("translator_file_format");
+        } else {
+            self.selected = Some(path);
+            self.result = None;
+            self.error = None;
+            self.generation = self.generation.wrapping_add(1);
         }
     }
     fn languages(&mut self, source: String, target: String) {
@@ -475,6 +491,7 @@ pub fn FileTranslator(
     let mut state = use_context::<Signal<AppState>>();
     let locale = state.read().locale;
     let id = instance().id;
+    let mut dragging = use_signal(|| false);
     let mut transfer_progress = use_signal(|| (0u64, 0u64, 0u64));
     use_future(move || async move {
         loop {
@@ -569,26 +586,38 @@ pub fn FileTranslator(
         .and_then(|path| path.file_name())
         .map(|name| name.to_string_lossy().into_owned());
     let output = draft.result.clone();
+    let can_choose = allowed && !draft.pending && !draft.choosing;
+    let dropped_extensions = extensions.clone();
     rsx! {section{class:"file-translator",
         if !instance().server.file_translation||info.as_ref().is_some_and(|info|!info.files_translation){p{class:"field-hint",{locale.text("translator_files_disabled")}}}
         else if status()==Status::Running&&info.is_none(){p{class:"field-hint",{locale.text(if formats.pending(){"translator_loading"}else{"translator_unavailable"})}}}
-        div{class:"file-selection",Icon{kind:"file"}
-            if let Some(filename)=filename {strong{dir:"auto","{filename}"}}else{p{{locale.text("translator_choose_file")}}}
-            Button{class:"secondary",disabled:!allowed||draft.pending||draft.choosing,onclick:move|_|{
+        div{class:"file-selection",role:"group",aria_label:locale.text("translator_files"),"data-dragging":dragging()&&can_choose,
+            ondragover:move |event:DragEvent|{event.prevent_default();dragging.set(can_choose);},
+            ondragleave:move |_|dragging.set(false),
+            ondrop:move |event:DragEvent|{
+                event.prevent_default();dragging.set(false);
+                if !can_choose{return;}
+                let files=event.files();
+                if files.is_empty(){return;}
+                let mut state=state.write();let Some(draft)=state.file_translations.get_mut(&id)else{return};
+                if files.len()!=1 {draft.error=Some("translator_file_single");return;}
+                draft.select_file(files[0].path(),&dropped_extensions);
+            },
+            Icon{kind:"file"}
+            if !formats_text.is_empty(){p{class:"field-hint file-formats",dir:"ltr","{formats_text}"}}
+            if let Some(filename)=filename {strong{dir:"auto","{filename}"}}else{p{{locale.text("translator_drop_file")}}}
+            Button{class:"secondary",disabled:!can_choose,onclick:move|_|{
                 {let mut state=state.write();let Some(draft)=state.file_translations.get_mut(&id)else{return};if draft.choosing{return};draft.choosing=true;}
                 let extensions=extensions.clone();spawn_forever(async move{
                 let mut dialog=rfd::AsyncFileDialog::new().set_title(locale.text("translator_choose_file"));
                 if !extensions.is_empty(){dialog=dialog.add_filter(locale.text("translator_files"),&extensions);}
                 if let Some(path)=choose_file(dialog).await {
-                    let valid_size=path.metadata().is_ok_and(|metadata|metadata.is_file()&&metadata.len()>0);
-                    let valid_extension=supported_extension(&path,&extensions);
                     let mut state=state.write();let Some(draft)=state.file_translations.get_mut(&id)else{return};
-                    if !valid_size {draft.error=Some("translator_file_size");}else if !valid_extension {draft.error=Some("translator_file_format");}else{draft.selected=Some(path);draft.result=None;draft.error=None;draft.generation=draft.generation.wrapping_add(1);}
+                    draft.select_file(path,&extensions);
                 }
                 if let Some(draft)=state.write().file_translations.get_mut(&id){draft.choosing=false;}
             });},Icon{kind:"folder"}{locale.text("translator_choose_file")}}
         }
-        if !formats_text.is_empty(){p{class:"field-hint file-formats",dir:"ltr","{formats_text}"}}
         div{class:"file-actions",
             Button{class:"primary",disabled:!allowed||draft.pending||draft.selected.is_none()||target().is_empty(),onclick:move|_|{
                 let transfer=Arc::new(Transfer::default());
@@ -1072,6 +1101,37 @@ mod tests {
         form.read_to_string(&mut payload).unwrap();
         assert!(payload.contains("filename=\"REPORT.txt\""));
         assert_eq!(std::fs::read(path).unwrap(), b"Uppercase filename");
+    }
+    #[test]
+    fn selecting_a_file_validates_input_and_preserves_the_previous_selection_on_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let valid = dir.path().join("Document.TXT");
+        std::fs::write(&valid, "Hello").unwrap();
+        let extensions = vec!["txt".to_string()];
+        let mut draft = Draft::default();
+        draft.select_file(valid.clone(), &extensions);
+        assert_eq!(draft.selected.as_ref(), Some(&valid));
+        assert_eq!(draft.error, None);
+        let revision = draft.generation;
+
+        let empty = dir.path().join("empty.txt");
+        std::fs::write(&empty, []).unwrap();
+        let unsupported = dir.path().join("archive.zip");
+        std::fs::write(&unsupported, "Unsupported").unwrap();
+        for (path, error) in [
+            (empty, "translator_file_size"),
+            (dir.path().to_path_buf(), "translator_file_size"),
+            (dir.path().join("missing.txt"), "translator_file_size"),
+            (unsupported, "translator_file_format"),
+        ] {
+            draft.select_file(path, &extensions);
+            assert_eq!(draft.selected.as_ref(), Some(&valid));
+            assert_eq!(draft.error, Some(error));
+            assert_eq!(draft.generation, revision);
+        }
+        draft.select_file(valid, &extensions);
+        assert_eq!(draft.error, None);
+        assert_eq!(draft.generation, revision + 1);
     }
     #[test]
     fn stream_copy_bounds_reads_and_distinguishes_storage_failures() {

@@ -208,6 +208,36 @@ pub fn Dropdown(
 }
 
 #[component]
+pub fn InstanceIcon(languages: String) -> Element {
+    let mut codes = Vec::new();
+    for code in languages
+        .split(',')
+        .map(str::trim)
+        .filter(|code| !code.is_empty())
+    {
+        if !codes.contains(&code) {
+            codes.push(code);
+        }
+    }
+    let count = codes.len().min(4);
+    let remaining = codes.len().saturating_sub(4);
+    rsx! {
+        span { class: "instance-icon", aria_hidden: "true",
+            if codes.is_empty() {
+                Icon { kind: "language" }
+            } else {
+                span { class: "instance-flag-mosaic", "data-count": "{count}",
+                    for code in codes.into_iter().take(4) {
+                        span { class: "instance-flag-tile", key: "{code}", LanguageFlag { code: code.to_string() } }
+                    }
+                }
+                if remaining > 0 { span { class: "instance-flag-more", "+{remaining}" } }
+            }
+        }
+    }
+}
+
+#[component]
 pub fn LanguageFlag(code: String) -> Element {
     if let Some(src) = flags::asset(&code) {
         rsx! { img { class: "language-flag", src, alt: "" } }
