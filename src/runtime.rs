@@ -1,3 +1,4 @@
+use crate::downloads::{DownloadPhase, ModelDownload, RuntimeTransfers};
 use crate::{
     model::{Device, Instance},
     settings::StoragePaths,
@@ -203,6 +204,7 @@ pub fn configure(cmd: &mut Command, paths: &StoragePaths, dir: &Path) -> Result<
         .env("UV_CACHE_DIR", dunce::simplified(&paths.cache))
         .env("UV_PYTHON_PREFERENCE", "only-managed")
         .env("UV_NO_PROGRESS", "1")
+        .env("NO_COLOR", "1")
         .env("PYTHONUNBUFFERED", "1")
         .env("PYTHONUTF8", "1")
         .env("PYTHONIOENCODING", "utf-8")
@@ -373,7 +375,10 @@ fn resume_process(pid: u32) -> Result<()> {
 }
 
 pub fn pipe_logs(child: &mut Child, log: &Logger) {
-    fn drain(stream: impl Read + Send + 'static, log: Logger) {
+    let _ = log_readers(child, log);
+}
+fn log_readers(child: &mut Child, log: &Logger) -> Vec<thread::JoinHandle<()>> {
+    fn drain(stream: impl Read + Send + 'static, log: Logger) -> thread::JoinHandle<()> {
         thread::spawn(move || {
             let mut reader = BufReader::new(stream);
             loop {
@@ -384,31 +389,61 @@ pub fn pipe_logs(child: &mut Child, log: &Logger) {
                     Ok(_) => log(String::from_utf8_lossy(&line).trim_end().to_string()),
                 }
             }
-        });
+        })
     }
+    let mut readers = Vec::new();
     if let Some(stdout) = child.stdout.take() {
-        drain(stdout, log.clone());
+        readers.push(drain(stdout, log.clone()));
     }
     if let Some(stderr) = child.stderr.take() {
-        drain(stderr, log.clone());
+        readers.push(drain(stderr, log.clone()));
     }
+    readers
 }
 
 fn run(mut cmd: Command, cancel: &AtomicBool, log: &Logger) -> Result<()> {
     ensure!(!cancel.load(Ordering::Relaxed), "Installation cancelled.");
     let mut child = OwnedChild::spawn(&mut cmd).context("Could not launch the managed runtime")?;
-    pipe_logs(&mut child.0, log);
-    loop {
-        ensure!(!cancel.load(Ordering::Relaxed), "Installation cancelled.");
-        if let Some(status) = child.0.try_wait()? {
-            ensure!(
-                status.success(),
-                "Installation command exited with {status}. See the log for details."
-            );
-            return Ok(());
+    let transfers = Arc::new(std::sync::Mutex::new(RuntimeTransfers::default()));
+    let tracked = transfers.clone();
+    let downstream = log.clone();
+    let logger: Logger = Arc::new(move |line| {
+        if let Some(progress) = tracked.lock().unwrap().observe_uv(&line) {
+            downstream(progress.message());
         }
-        thread::sleep(Duration::from_millis(100));
+        downstream(line);
+    });
+    let readers = log_readers(&mut child.0, &logger);
+    let result = (|| {
+        loop {
+            ensure!(!cancel.load(Ordering::Relaxed), "Installation cancelled.");
+            if let Some(status) = child.0.try_wait()? {
+                ensure!(
+                    status.success(),
+                    "Installation command exited with {status}. See the log for details."
+                );
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+    })();
+    // Kill descendants before joining readers, including on cancellation. Drain all
+    // progress before marking tasks finished so late output cannot reopen a task.
+    drop(child);
+    for reader in readers {
+        let _ = reader.join();
     }
+    let phase = if cancel.load(Ordering::Relaxed) {
+        DownloadPhase::Interrupted
+    } else if result.is_ok() {
+        DownloadPhase::Complete
+    } else {
+        DownloadPhase::Failed
+    };
+    for progress in transfers.lock().unwrap().finish(phase) {
+        log(progress.message());
+    }
+    result
 }
 
 fn uv_target() -> Result<&'static str> {
@@ -423,9 +458,21 @@ fn uv_target() -> Result<&'static str> {
     }
 }
 
-fn download(client: &Client, url: &str, max: u64, cancel: &AtomicBool) -> Result<Vec<u8>> {
+fn download(
+    client: &Client,
+    url: &str,
+    max: u64,
+    cancel: &AtomicBool,
+    progress: impl Fn(u64, Option<u64>),
+) -> Result<Vec<u8>> {
     ensure!(!cancel.load(Ordering::Relaxed), "Installation cancelled.");
     let mut response = client.get(url).send()?.error_for_status()?;
+    let total = response.content_length().filter(|size| *size > 0);
+    ensure!(
+        total.is_none_or(|size| size <= max),
+        "Download exceeds the expected size limit."
+    );
+    progress(0, total);
     let mut bytes = Vec::new();
     let mut chunk = [0; 65536];
     loop {
@@ -439,6 +486,7 @@ fn download(client: &Client, url: &str, max: u64, cancel: &AtomicBool) -> Result
             bytes.len() as u64 <= max,
             "Download exceeds the expected size limit."
         );
+        progress(bytes.len() as u64, total);
     }
     ensure!(
         bytes.len() as u64 <= max,
@@ -455,57 +503,84 @@ fn ensure_uv(root: &Path, cancel: &AtomicBool, log: &Logger) -> Result<PathBuf> 
         return Ok(bin);
     }
     log("Downloading the private runtime installer…".into());
-    let ext = if cfg!(windows) { "zip" } else { "tar.gz" };
-    let asset = format!("uv-{}.{}", uv_target()?, ext);
-    let base = format!("https://github.com/astral-sh/uv/releases/download/{UV_VERSION}/{asset}");
-    let client = Client::builder()
-        .connect_timeout(Duration::from_secs(15))
-        .timeout(Duration::from_secs(60))
-        .user_agent("LibreTranslate-Desktop/0.1")
-        .build()?;
-    let archive = download(&client, &base, 100 * 1024 * 1024, cancel)?;
-    ensure!(!cancel.load(Ordering::Relaxed), "Installation cancelled.");
-    let checksum = download(&client, &format!("{base}.sha256"), 4096, cancel)?;
-    verify_checksum(&archive, &String::from_utf8(checksum)?)?;
-    let name = if cfg!(windows) { "uv.exe" } else { "uv" };
-    let mut executable = Vec::new();
-    if cfg!(windows) {
-        let mut zip = zip::ZipArchive::new(std::io::Cursor::new(archive))?;
-        for index in 0..zip.len() {
-            let entry = zip.by_index(index)?;
-            if Path::new(entry.name())
-                .file_name()
-                .is_some_and(|n| n == name)
-            {
-                entry.take(100 * 1024 * 1024).read_to_end(&mut executable)?;
-                break;
+    let name = format!("uv-{UV_VERSION}");
+    let downloaded = std::cell::Cell::new(0);
+    let total = std::cell::Cell::new(None);
+    log(ModelDownload::runtime(&name, 0, None, DownloadPhase::Queued).message());
+    let result = (|| {
+        let ext = if cfg!(windows) { "zip" } else { "tar.gz" };
+        let asset = format!("uv-{}.{}", uv_target()?, ext);
+        let base =
+            format!("https://github.com/astral-sh/uv/releases/download/{UV_VERSION}/{asset}");
+        let client = Client::builder()
+            .connect_timeout(Duration::from_secs(15))
+            .timeout(Duration::from_secs(60))
+            .user_agent("LibreTranslate-Desktop/0.1")
+            .build()?;
+        let archive = download(&client, &base, 100 * 1024 * 1024, cancel, |bytes, size| {
+            downloaded.set(bytes);
+            total.set(size);
+            log(ModelDownload::runtime(&name, bytes, size, DownloadPhase::Downloading).message());
+        })?;
+        ensure!(!cancel.load(Ordering::Relaxed), "Installation cancelled.");
+        log(ModelDownload::runtime(
+            &name,
+            downloaded.get(),
+            total.get(),
+            DownloadPhase::Validating,
+        )
+        .message());
+        let checksum = download(&client, &format!("{base}.sha256"), 4096, cancel, |_, _| {})?;
+        verify_checksum(&archive, &String::from_utf8(checksum)?)?;
+        let name = if cfg!(windows) { "uv.exe" } else { "uv" };
+        let mut executable = Vec::new();
+        if cfg!(windows) {
+            let mut zip = zip::ZipArchive::new(std::io::Cursor::new(archive))?;
+            for index in 0..zip.len() {
+                let entry = zip.by_index(index)?;
+                if Path::new(entry.name())
+                    .file_name()
+                    .is_some_and(|n| n == name)
+                {
+                    entry.take(100 * 1024 * 1024).read_to_end(&mut executable)?;
+                    break;
+                }
+            }
+        } else {
+            let mut tar = tar::Archive::new(flate2::read::GzDecoder::new(&archive[..]));
+            for entry in tar.entries()? {
+                let entry = entry?;
+                if entry.path()?.file_name().is_some_and(|n| n == name) {
+                    entry.take(100 * 1024 * 1024).read_to_end(&mut executable)?;
+                    break;
+                }
             }
         }
+        ensure!(
+            !executable.is_empty(),
+            "The runtime archive did not contain {name}."
+        );
+        ensure!(!cancel.load(Ordering::Relaxed), "Installation cancelled.");
+        fs::create_dir_all(bin.parent().unwrap())?;
+        let temp = bin.with_extension("download");
+        fs::write(&temp, executable)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&temp, fs::Permissions::from_mode(0o755))?;
+        }
+        fs::rename(temp, &bin)?;
+        Ok(bin)
+    })();
+    let phase = if cancel.load(Ordering::Relaxed) {
+        DownloadPhase::Interrupted
+    } else if result.is_ok() {
+        DownloadPhase::Complete
     } else {
-        let mut tar = tar::Archive::new(flate2::read::GzDecoder::new(&archive[..]));
-        for entry in tar.entries()? {
-            let entry = entry?;
-            if entry.path()?.file_name().is_some_and(|n| n == name) {
-                entry.take(100 * 1024 * 1024).read_to_end(&mut executable)?;
-                break;
-            }
-        }
-    }
-    ensure!(
-        !executable.is_empty(),
-        "The runtime archive did not contain {name}."
-    );
-    ensure!(!cancel.load(Ordering::Relaxed), "Installation cancelled.");
-    fs::create_dir_all(bin.parent().unwrap())?;
-    let temp = bin.with_extension("download");
-    fs::write(&temp, executable)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&temp, fs::Permissions::from_mode(0o755))?;
-    }
-    fs::rename(temp, &bin)?;
-    Ok(bin)
+        DownloadPhase::Failed
+    };
+    log(ModelDownload::runtime(&name, downloaded.get(), total.get(), phase).message());
+    result
 }
 
 fn verify_checksum(bytes: &[u8], checksum: &str) -> Result<()> {
@@ -916,6 +991,99 @@ pub fn capture(cmd: &mut Command, timeout: Duration) -> Result<(bool, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn runtime_archive_progress_reports_measured_bytes_with_and_without_content_length() {
+        for known_size in [true, false] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(3)))
+                    .unwrap();
+                let mut request = [0; 4096];
+                assert!(socket.read(&mut request).unwrap() > 0);
+                use std::io::Write;
+                let length = if known_size {
+                    "Content-Length: 8\r\n"
+                } else {
+                    ""
+                };
+                write!(
+                    socket,
+                    "HTTP/1.1 200 OK\r\n{length}Connection: close\r\n\r\n12345678"
+                )
+                .unwrap();
+            });
+            let progress = std::cell::RefCell::new(Vec::new());
+            let client = Client::builder()
+                .timeout(Duration::from_secs(3))
+                .build()
+                .unwrap();
+            let bytes = download(
+                &client,
+                &format!("http://{address}/uv.zip"),
+                16,
+                &AtomicBool::new(false),
+                |bytes, total| progress.borrow_mut().push((bytes, total)),
+            )
+            .unwrap();
+            server.join().unwrap();
+            assert_eq!(bytes, b"12345678");
+            let progress = progress.into_inner();
+            assert_eq!(progress.first(), Some(&(0, known_size.then_some(8))));
+            assert_eq!(progress.last(), Some(&(8, known_size.then_some(8))));
+        }
+    }
+    #[test]
+    fn subprocess_download_tasks_finish_after_the_final_output_is_drained() {
+        for success in [true, false] {
+            #[cfg(windows)]
+            let mut cmd = command("cmd");
+            #[cfg(windows)]
+            cmd.args([
+                "/D",
+                "/C",
+                if success {
+                    "echo Downloading nvidia-cublas-cu12 & exit /B 0"
+                } else {
+                    "echo Downloading nvidia-cublas-cu12 & exit /B 1"
+                },
+            ]);
+            #[cfg(unix)]
+            let mut cmd = command("sh");
+            #[cfg(unix)]
+            cmd.args([
+                "-c",
+                if success {
+                    "printf 'Downloading nvidia-cublas-cu12\\n'; exit 0"
+                } else {
+                    "printf 'Downloading nvidia-cublas-cu12\\n'; exit 1"
+                },
+            ]);
+            let messages = Arc::new(std::sync::Mutex::new(Vec::new()));
+            let saved = messages.clone();
+            let log: Logger = Arc::new(move |line| saved.lock().unwrap().push(line));
+            assert_eq!(run(cmd, &AtomicBool::new(false), &log).is_ok(), success);
+            let progress = messages
+                .lock()
+                .unwrap()
+                .iter()
+                .filter_map(|line| ModelDownload::parse(line))
+                .collect::<Vec<_>>();
+            assert_eq!(progress.len(), 2);
+            assert_eq!(progress[0].phase, DownloadPhase::Downloading);
+            assert_eq!(progress[1].source, "nvidia-cublas-cu12");
+            assert_eq!(
+                progress[1].phase,
+                if success {
+                    DownloadPhase::Complete
+                } else {
+                    DownloadPhase::Failed
+                }
+            );
+        }
+    }
     #[test]
     fn staged_runtime_does_not_replace_working_environment_until_commit() {
         let root = tempfile::tempdir().unwrap();

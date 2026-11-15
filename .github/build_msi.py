@@ -129,8 +129,9 @@ def generate(stage, output, version, icon, *, identity='release', product_name=N
 def build(root, stage=None, *, version=None, identity='release', product_name=NAME, work=None):
     root = Path(root).resolve()
     version = version or tomllib.loads((root / 'Cargo.toml').read_text(encoding='utf-8'))['package']['version']
-    name = f'LibreTranslate-GUI-{version}-Windows-x64'
-    stage = Path(stage or root / 'release-staging' / name).resolve()
+    legacy_name = f'LibreTranslate-GUI-{version}-Windows-x64'
+    name = f'LibreTranslate-GUI-{version}-Installer-Windows-x64'
+    stage = Path(stage or root / 'release-staging' / legacy_name).resolve()
     work = Path(work or root / 'release-staging/wix').resolve()
     work.mkdir(parents=True, exist_ok=True)
     source = work / 'Installer.wxs'
@@ -149,6 +150,10 @@ def build(root, stage=None, *, version=None, identity='release', product_name=NA
     installer = output / (name + '.msi')
     digest = hashlib.sha256(installer.read_bytes()).hexdigest()
     installer.with_suffix('.msi.sha256').write_text(f'{digest}  {installer.name}\n', encoding='ascii')
+    if identity == 'release':
+        legacy = output / (legacy_name + '.msi')
+        shutil.copy2(installer, legacy)
+        legacy.with_suffix('.msi.sha256').write_text(f'{digest}  {legacy.name}\n', encoding='ascii')
     return installer
 
 

@@ -342,5 +342,16 @@
   "app_update_verifying": "Update controleren…",
   "app_update_restarting": "Opnieuw starten…",
   "app_update_failed": "De update is mislukt. Bekijk de details en probeer het opnieuw.",
-  "app_update_unsupported": "Er is geen installeerbare update voor dit platform beschikbaar."
+  "app_update_unsupported": "Er is geen installeerbare update voor dit platform beschikbaar.",
+  "translator_counters": "Teksttellers",
+  "counter_characters": "Aantal tekens tonen",
+  "counter_words": "Aantal woorden tonen",
+  "counter_labels": "Labels van tellers tonen",
+  "counter_hint": "Toon één teller, beide of geen. Wijzigingen worden automatisch opgeslagen.",
+  "translator_words": "Woorden",
+  "download_size_about": "Ongeveer {size}",
+  "download_size_unreported": "Grootte niet opgegeven",
+  "runtime_file": "Bestand van de uitvoeromgeving",
+  "app_msix_download": "MSIX downloaden",
+  "app_msix_hint": "Windows beheert deze installatie. Sluit de app voordat u de gedownloade MSIX installeert."
 }

@@ -230,9 +230,19 @@ impl Actor {
             if let Some(progress) = ModelDownload::parse(&text) {
                 let mut downloads = downloads.lock().unwrap();
                 let models = downloads.entry(id).or_default();
-                if models.len() < 256 || models.contains_key(&progress.key()) {
-                    models.insert(progress.key(), progress);
+                if models.len() >= 256 && !models.contains_key(&progress.key()) {
+                    let old = models
+                        .iter()
+                        .filter(|(_, item)| !item.phase.active())
+                        .min_by_key(|(_, item)| item.kind != downloads::DownloadKind::Runtime)
+                        .map(|(key, _)| key.clone());
+                    if let Some(old) = old {
+                        models.remove(&old);
+                    } else {
+                        return;
+                    }
                 }
+                models.insert(progress.key(), progress);
                 return;
             }
             let _ = send.try_send(Log { id, text });

@@ -342,5 +342,16 @@
   "app_update_verifying": "Verifica dell'aggiornamento…",
   "app_update_restarting": "Riavvio…",
   "app_update_failed": "Aggiornamento non riuscito. Controlla i dettagli e riprova.",
-  "app_update_unsupported": "Non ci sono aggiornamenti installabili per questa piattaforma."
+  "app_update_unsupported": "Non ci sono aggiornamenti installabili per questa piattaforma.",
+  "translator_counters": "Contatori del testo",
+  "counter_characters": "Mostra il numero di caratteri",
+  "counter_words": "Mostra il numero di parole",
+  "counter_labels": "Mostra le etichette dei contatori",
+  "counter_hint": "Mostra un contatore, entrambi o nessuno. Le modifiche vengono salvate automaticamente.",
+  "translator_words": "Parole",
+  "download_size_about": "Circa {size}",
+  "download_size_unreported": "Dimensione non indicata",
+  "runtime_file": "File dell’ambiente di esecuzione",
+  "app_msix_download": "Scarica MSIX",
+  "app_msix_hint": "Windows gestisce questa installazione. Chiudi l’app prima di installare il MSIX scaricato."
 }

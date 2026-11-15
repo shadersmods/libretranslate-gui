@@ -342,5 +342,16 @@
   "app_update_verifying": "更新を検証中…",
   "app_update_restarting": "再起動中…",
   "app_update_failed": "更新に失敗しました。詳細を確認して再試行してください。",
-  "app_update_unsupported": "このプラットフォームにインストールできる更新はありません。"
+  "app_update_unsupported": "このプラットフォームにインストールできる更新はありません。",
+  "translator_counters": "テキストのカウント",
+  "counter_characters": "文字数を表示",
+  "counter_words": "単語数を表示",
+  "counter_labels": "カウントのラベルを表示",
+  "counter_hint": "片方、両方、またはどちらも表示しない設定にできます。変更は自動保存されます。",
+  "translator_words": "単語",
+  "download_size_about": "約 {size}",
+  "download_size_unreported": "サイズ不明",
+  "runtime_file": "ランタイムファイル",
+  "app_msix_download": "MSIX をダウンロード",
+  "app_msix_hint": "このインストールは Windows が管理します。ダウンロードした MSIX をインストールする前にアプリを閉じてください。"
 }

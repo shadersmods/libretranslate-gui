@@ -1,6 +1,6 @@
 [package]
 name = "libretranslate-gui"
-version = "0.2.8"
+version = "0.2.9"
 edition = "2024"
 rust-version = "1.88"
 description = "A native Rust desktop manager for local LibreTranslate instances"
@@ -29,12 +29,13 @@ uuid = { version = "1", features = ["v4", "serde"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 tokio = { version = "1", features = ["time", "sync", "fs", "io-util"] }
 sys-locale = "0.3"
+unicode-segmentation = "1.13.3"
 webbrowser = "1"
 rfd = { version = "0.17", default-features = false, features = ["xdg-portal"] }
 tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Globalization", "Win32_Graphics_Dwm", "Win32_Security", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_Threading"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Globalization", "Win32_Graphics_Dwm", "Win32_Security", "Win32_Storage_Packaging_Appx", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_Threading"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

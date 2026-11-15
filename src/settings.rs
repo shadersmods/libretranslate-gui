@@ -34,6 +34,23 @@ impl Theme {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
+pub struct TranslatorCounters {
+    pub characters: bool,
+    pub words: bool,
+    pub labels: bool,
+}
+impl Default for TranslatorCounters {
+    fn default() -> Self {
+        Self {
+            characters: true,
+            words: false,
+            labels: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Preferences {
     pub locale: Locale,
     pub theme: Theme,
@@ -41,6 +58,7 @@ pub struct Preferences {
     pub cache_dir: String,
     pub python_dir: String,
     pub follow_logs: bool,
+    pub translator_counters: TranslatorCounters,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -51,6 +69,7 @@ impl Default for Preferences {
             cache_dir: String::new(),
             python_dir: String::new(),
             follow_logs: true,
+            translator_counters: TranslatorCounters::default(),
         }
     }
 }

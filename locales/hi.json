@@ -342,5 +342,16 @@
   "app_update_verifying": "अपडेट की जाँच हो रही है…",
   "app_update_restarting": "फिर शुरू हो रहा है…",
   "app_update_failed": "अपडेट नहीं हो सका। विवरण देखकर फिर कोशिश करें।",
-  "app_update_unsupported": "इस प्लेटफ़ॉर्म के लिए इंस्टॉल करने योग्य अपडेट उपलब्ध नहीं है।"
+  "app_update_unsupported": "इस प्लेटफ़ॉर्म के लिए इंस्टॉल करने योग्य अपडेट उपलब्ध नहीं है।",
+  "translator_counters": "पाठ की गिनती",
+  "counter_characters": "अक्षरों की संख्या दिखाएँ",
+  "counter_words": "शब्दों की संख्या दिखाएँ",
+  "counter_labels": "गिनती के लेबल दिखाएँ",
+  "counter_hint": "एक गिनती दिखाएँ, दोनों दिखाएँ या दोनों छिपाएँ। बदलाव अपने आप सहेजे जाते हैं।",
+  "translator_words": "शब्द",
+  "download_size_about": "लगभग {size}",
+  "download_size_unreported": "आकार नहीं बताया गया",
+  "runtime_file": "रनटाइम फ़ाइल",
+  "app_msix_download": "MSIX डाउनलोड करें",
+  "app_msix_hint": "इस इंस्टॉलेशन का प्रबंधन Windows करता है। डाउनलोड किया गया MSIX इंस्टॉल करने से पहले ऐप बंद करें।"
 }

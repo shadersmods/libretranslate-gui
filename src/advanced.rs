@@ -82,10 +82,11 @@ pub fn NumberSetting(
     value: Option<u32>,
     onchange: EventHandler<Option<u32>>,
     #[props(default = 1)] min: u32,
+    #[props(default)] disabled: bool,
 ) -> Element {
     let locale = use_context::<Signal<AppState>>().read().locale;
     rsx! { div { class: "field", label { r#for: id.clone(), {locale.text(label_key)} }
-        Input { id: id.clone(), r#type: "number", min: "{min}", max: "4294967295", placeholder: locale.text("unlimited"), value: value.map(|n| n.to_string()).unwrap_or_default(), oninput: move |event:FormEvent| { let value=event.value(); if value.is_empty() { onchange.call(None); } else if let Ok(value)=value.parse() { onchange.call(Some(value)); } } }
+        Input { id: id.clone(), disabled, r#type: "number", min: "{min}", max: "4294967295", placeholder: locale.text("unlimited"), value: value.map(|n| n.to_string()).unwrap_or_default(), oninput: move |event:FormEvent| { let value=event.value(); if value.is_empty() { onchange.call(None); } else if let Ok(value)=value.parse() { onchange.call(Some(value)); } } }
     } }
 }
 #[component]

@@ -89,6 +89,7 @@ pub struct AppState {
     pub app_update_checking: bool,
     pub app_update_refresh: u32,
     pub app_update_status: Option<&'static str>,
+    pub app_update_error: Option<String>,
 }
 impl AppState {
     pub fn new() -> Self {
@@ -124,6 +125,7 @@ impl AppState {
                         None
                     }
                 });
+        let update_error = crate::self_update::previous_failure();
         Self {
             closing: false,
             close_requested: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -147,7 +149,7 @@ impl AppState {
             downloads: HashMap::new(),
             translations: HashMap::new(),
             file_translations: HashMap::new(),
-            message: crate::self_update::previous_failure().map(|details| Message {
+            message: update_error.clone().map(|details| Message {
                 key: "app_update_failed",
                 details: Some(details),
                 error: true,
@@ -165,6 +167,7 @@ impl AppState {
             app_update_checking: false,
             app_update_refresh: 0,
             app_update_status: None,
+            app_update_error: update_error,
         }
     }
     pub fn notice(&mut self, key: &'static str) {
@@ -616,6 +619,16 @@ impl AppState {
             }
         }
     }
+    pub fn set_translator_counters(&mut self, counters: crate::settings::TranslatorCounters) {
+        self.preferences.translator_counters = counters.clone();
+        if let Some(settings) = self.settings.as_mut() {
+            let mut saved = settings.preferences.clone();
+            saved.translator_counters = counters;
+            if let Err(error) = settings.save(&saved) {
+                self.error("operation_failed", format!("{error:#}"));
+            }
+        }
+    }
     pub fn save_options(&mut self) {
         let Some(settings) = self.settings.as_mut() else {
             self.error(
@@ -814,6 +827,35 @@ mod tests {
         assert!(!restored.preferences.follow_logs);
         assert_eq!(restored.preferences.data_dir, "data");
         assert_eq!(state.preferences.data_dir, "unfinished/path");
+    }
+    #[test]
+    fn text_counter_options_persist_immediately_without_saving_unfinished_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("settings.json");
+        std::fs::write(&file, r#"{"locale":"en","data_dir":"data"}"#).unwrap();
+        let settings = Settings::from_file(dir.path().into(), file.clone()).unwrap();
+        assert_eq!(
+            settings.preferences.translator_counters,
+            crate::settings::TranslatorCounters::default()
+        );
+        let mut state = AppState::from_settings(Ok(settings));
+        state.preferences.data_dir = "unfinished/path".into();
+        for (characters, words, labels) in [
+            (false, true, true),
+            (true, true, false),
+            (false, false, true),
+        ] {
+            let counters = crate::settings::TranslatorCounters {
+                characters,
+                words,
+                labels,
+            };
+            state.set_translator_counters(counters.clone());
+            let restored = Settings::from_file(dir.path().into(), file.clone()).unwrap();
+            assert_eq!(restored.preferences.translator_counters, counters);
+            assert_eq!(restored.preferences.data_dir, "data");
+            assert_eq!(state.preferences.data_dir, "unfinished/path");
+        }
     }
     #[test]
     fn idle_poll_does_not_dirty_state_but_debounced_edits_and_feedback_expiry_do() {

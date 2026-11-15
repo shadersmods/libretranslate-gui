@@ -87,11 +87,13 @@ def smoke():
 
     installed_version = None
     try:
+        installers = {}
         for version, asset in [('0.2.8', 'old.css'), ('0.2.9', 'new.css')]:
             stage = work / version / 'stage'
             fixture(stage, asset)
             installer = msi.build(ROOT, stage, version=version, identity=identity,
                                   product_name=product_name, work=work / version / 'wix')
+            installers[version] = installer
             run('/i', installer, 'INSTALLFOLDER=' + str(install), log=version + '-install.log')
             installed_version = version
             assert (install / 'assets' / asset).is_file()
@@ -104,7 +106,7 @@ def smoke():
             else:
                 assert not (install / 'assets/old.css').exists(), 'Upgrade left an obsolete hashed asset'
         # An older installer must leave the newer product and its files intact.
-        old = work / '0.2.8/wix/output/LibreTranslate-GUI-0.2.8-Windows-x64.msi'
+        old = installers['0.2.8']
         result = subprocess.run([str(installer_command), '/i', str(old), '/qn', '/norestart',
                                  '/L*v', str(work / 'downgrade.log')], timeout=180)
         assert result.returncode == 1603, f'Downgrade was not blocked: {result.returncode}'
@@ -131,7 +133,7 @@ def verify_package(installer):
     executables = list((work / 'image').rglob('libretranslate-gui.exe'))
     assert len(executables) == 1, 'Expected exactly one app executable in the MSI'
     extracted = executables[0].parent
-    stage = ROOT / 'release-staging' / installer.stem
+    stage = ROOT / 'release-staging' / installer.stem.replace('-Installer-', '-', 1)
     for path in stage.rglob('*'):
         if path.is_file():
             relative = path.relative_to(stage)

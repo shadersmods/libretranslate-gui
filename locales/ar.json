@@ -342,5 +342,16 @@
   "app_update_verifying": "جارٍ التحقق من التحديث…",
   "app_update_restarting": "جارٍ إعادة التشغيل…",
   "app_update_failed": "فشل التحديث. راجع التفاصيل وحاول مجددا.",
-  "app_update_unsupported": "لا يتوفر تحديث قابل للتثبيت لهذه المنصة."
+  "app_update_unsupported": "لا يتوفر تحديث قابل للتثبيت لهذه المنصة.",
+  "translator_counters": "عدادات النص",
+  "counter_characters": "إظهار عدد الأحرف",
+  "counter_words": "إظهار عدد الكلمات",
+  "counter_labels": "إظهار تسميات العدادات",
+  "counter_hint": "اعرض عدادًا واحدًا أو كليهما أو أخفهما. تُحفظ التغييرات تلقائيًا.",
+  "translator_words": "الكلمات",
+  "download_size_about": "حوالي {size}",
+  "download_size_unreported": "الحجم غير مذكور",
+  "runtime_file": "ملف بيئة التشغيل",
+  "app_msix_download": "تنزيل MSIX",
+  "app_msix_hint": "يدير Windows هذا التثبيت. أغلق التطبيق قبل تثبيت ملف MSIX الذي تم تنزيله."
 }

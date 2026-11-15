@@ -16,7 +16,9 @@ The instance library provides search, process status, and lifecycle controls. Th
 
 **Add all** adds every supported translation language once. Existing valid configuration changes use the same automatic saving as individual language edits. Missing models download when the server next starts.
 
-The title-bar **Tasks** menu shows active setup work and model downloads, including transferred bytes and totals when available. Finished, failed, and stopped transfers remain in the session history. Dismiss or clear history to remove those records; downloaded files stay on disk. The Models tab keeps the model inventory and update controls.
+The title-bar **Tasks** menu shows runtime installer downloads, Python and runtime packages (including CUDA libraries), and model downloads. It shows transferred bytes and totals when available. Package downloads handled by uv show an indeterminate progress bar and the approximate size uv reports; a size estimate is not a transferred-byte count. Finished, failed, and stopped transfers remain in the session history. Dismiss or clear history to remove those records; downloaded files stay on disk. The Models tab keeps the model inventory and update controls.
+
+The translation result shows placeholder lines while a request is waiting or running. Their number and width follow the input's visible lines, including wrapping and paragraph breaks. In **Options → Text counters**, show characters, words, both, or neither below the source text. Counter labels are optional. These preferences save immediately. Character limits still apply when the character counter is hidden.
 
 Enabling **Prometheus metrics** in Advanced adds a **Statistics** tab. It reads request totals, failed requests, weighted average response time, in-flight requests, and per-endpoint totals from the instance's metrics endpoint. It uses the configured metrics token and URL prefix. The tab refreshes every five seconds while open and reports unavailable or invalid data instead of displaying zero. Client addresses and API-key labels are not shown.
 
@@ -78,11 +80,28 @@ To build the Windows MSI, run these commands in a Visual Studio developer shell 
 ```powershell
 python .github/package_release.py
 python .github/build_msi.py
+python .github/build_msix.py
 ```
 
 Python 3.11 and MSBuild are required. The project restores WiX SDK and UI extension 4.0.6 from NuGet. Outputs are written to `release/`, including SHA-256 files. Release tags must match the version in `Cargo.toml`. Windows CI also runs `python tests/windows_installer.py --smoke`, using a uniquely identified test product to check installation, upgrades, blocked downgrades, shortcuts and uninstall without touching the real app.
 
 ## Storage
+
+### Unsigned MSIX
+
+The Windows build also produces `LibreTranslate-GUI-0.2.9-Installer-Windows-x64-Unsigned.msix` and its SHA-256 file. The Windows SDK's MakeAppx tool validates the package, and the build compares every packaged program file with the release stage. It contains the desktop app and its assets; Python and translation models are installed on first setup.
+
+This package is for Windows 11 testing. It uses Microsoft's unsigned-package identity and is not a signed installer for general distribution. To test it, open PowerShell as administrator and run:
+
+```powershell
+Add-AppxPackage -Path ".\LibreTranslate-GUI-0.2.9-Installer-Windows-x64-Unsigned.msix" -AllowUnsigned
+```
+
+Use the MSI for ordinary installation. A production MSIX release needs a signing certificate and a rebuilt manifest with the matching publisher identity. [Microsoft's unsigned-package documentation](https://learn.microsoft.com/en-us/windows/msix/package/unsigned-package) explains the testing restrictions.
+
+MSIX stores settings and models in its package's `LocalState` folder under `%LOCALAPPDATA%\Packages\`. Upgrades preserve this data; uninstalling the MSIX removes its package data. To keep models separately, choose a folder outside the package's data area in **Options**. In-app updates download the matching MSIX for Windows to install, rather than replacing protected program files.
+
+### MSI and portable storage
 
 The Windows MSI installs program files in `%LOCALAPPDATA%\Programs\LibreTranslate GUI` and adds a Start menu shortcut. Settings (`libretranslate-desktop.json`) and `data/` live in `%LOCALAPPDATA%\LibreTranslate GUI`. Uninstall through **Windows Settings → Apps → Installed apps**; settings, runtimes and downloaded models are kept. Delete that separate data folder yourself if you want to remove them. The MSI does not import or change a portable profile.
 

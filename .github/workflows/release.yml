@@ -29,6 +29,7 @@ jobs:
       - run: python tests/model_sync.py
       - run: python tests/release_packaging.py
       - run: python tests/windows_installer.py
+      - run: python tests/windows_msix.py
       - uses: microsoft/setup-msbuild@v2
         if: runner.os == 'Windows'
       - run: python tests/windows_installer.py --smoke
@@ -38,9 +39,11 @@ jobs:
       - run: python .github/package_release.py
       - run: python .github/build_msi.py
         if: runner.os == 'Windows'
+      - run: python .github/build_msix.py
+        if: runner.os == 'Windows'
       - name: Verify Windows installer payload
         if: runner.os == 'Windows'
-        run: python tests/windows_installer.py --verify-package (Get-ChildItem release/*.msi).FullName
+        run: python tests/windows_installer.py --verify-package (Get-ChildItem release/*-Installer-Windows-x64.msi).FullName
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ runner.os }}-${{ runner.arch }}

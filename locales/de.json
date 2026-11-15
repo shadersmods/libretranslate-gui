@@ -342,5 +342,16 @@
   "app_update_verifying": "Update wird geprüft…",
   "app_update_restarting": "Neustart…",
   "app_update_failed": "Das Update ist fehlgeschlagen. Prüfen Sie die Details und versuchen Sie es erneut.",
-  "app_update_unsupported": "Für diese Plattform ist kein installierbares Update verfügbar."
+  "app_update_unsupported": "Für diese Plattform ist kein installierbares Update verfügbar.",
+  "translator_counters": "Textzähler",
+  "counter_characters": "Zeichenanzahl anzeigen",
+  "counter_words": "Wortanzahl anzeigen",
+  "counter_labels": "Beschriftungen anzeigen",
+  "counter_hint": "Einen Zähler, beide oder keinen anzeigen. Änderungen werden automatisch gespeichert.",
+  "translator_words": "Wörter",
+  "download_size_about": "Ungefähr {size}",
+  "download_size_unreported": "Größe nicht angegeben",
+  "runtime_file": "Laufzeitdatei",
+  "app_msix_download": "MSIX herunterladen",
+  "app_msix_hint": "Windows verwaltet diese Installation. Schließen Sie die App, bevor Sie die heruntergeladene MSIX-Datei installieren."
 }

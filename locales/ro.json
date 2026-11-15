@@ -342,5 +342,16 @@
   "app_update_verifying": "Se verifică actualizarea…",
   "app_update_restarting": "Se repornește…",
   "app_update_failed": "Actualizarea a eșuat. Verifică detaliile și încearcă din nou.",
-  "app_update_unsupported": "Nu este disponibilă o actualizare instalabilă pentru această platformă."
+  "app_update_unsupported": "Nu este disponibilă o actualizare instalabilă pentru această platformă.",
+  "translator_counters": "Contoare de text",
+  "counter_characters": "Arată numărul de caractere",
+  "counter_words": "Arată numărul de cuvinte",
+  "counter_labels": "Arată etichetele contoarelor",
+  "counter_hint": "Afișează un contor, ambele sau niciunul. Modificările se salvează automat.",
+  "translator_words": "Cuvinte",
+  "download_size_about": "Aproximativ {size}",
+  "download_size_unreported": "Dimensiune neraportată",
+  "runtime_file": "Fișier de runtime",
+  "app_msix_download": "Descarcă MSIX",
+  "app_msix_hint": "Windows gestionează această instalare. Închide aplicația înainte de a instala fișierul MSIX descărcat."
 }

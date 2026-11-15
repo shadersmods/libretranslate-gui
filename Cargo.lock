@@ -2558,7 +2558,7 @@ dependencies = [
 
 [[package]]
 name = "libretranslate-gui"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "anyhow",
  "arboard",
@@ -2581,6 +2581,7 @@ dependencies = [
  "tar",
  "tempfile",
  "tokio",
+ "unicode-segmentation",
  "uuid",
  "webbrowser",
  "windows-sys 0.59.0",

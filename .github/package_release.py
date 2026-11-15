@@ -32,6 +32,7 @@ def package(root, *, system=None, machine=None, target=None, tag=None):
         raise SystemExit('Expected one complete Dioxus release app bundle' if system == 'macOS'
                          else 'Expected one Dioxus release executable with its assets folder')
     name = f'LibreTranslate-GUI-{version}-{system}-{arch}'
+    download_name = f'LibreTranslate-GUI-{version}-Portable-{system}-{arch}'
     staging = root / 'release-staging' / name
     staging.mkdir(parents=True, exist_ok=False)
     mac_executable = None
@@ -60,11 +61,11 @@ def package(root, *, system=None, machine=None, target=None, tag=None):
     output = root / 'release'
     output.mkdir(exist_ok=True)
     if system == 'Linux':
-        archive = output / (name + '.tar.gz')
+        archive = output / (download_name + '.tar.gz')
         with tarfile.open(archive, 'w:gz') as bundle:
             bundle.add(staging, arcname=name)
     else:
-        archive = output / (name + '.zip')
+        archive = output / (download_name + '.zip')
         with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as bundle:
             for path in staging.rglob('*'):
                 relative = path.relative_to(staging.parent).as_posix()
@@ -83,6 +84,10 @@ def package(root, *, system=None, machine=None, target=None, tag=None):
                         shutil.copyfileobj(source, destination)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     archive.with_suffix(archive.suffix + '.sha256').write_text(f'{digest}  {archive.name}\n', encoding='ascii')
+    # Older published apps require the original asset name and archive root.
+    legacy = output / archive.name.replace('-Portable-', '-', 1)
+    shutil.copy2(archive, legacy)
+    legacy.with_suffix(legacy.suffix + '.sha256').write_text(f'{digest}  {legacy.name}\n', encoding='ascii')
     return archive
 
 

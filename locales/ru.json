@@ -342,5 +342,16 @@
   "app_update_verifying": "Проверка обновления…",
   "app_update_restarting": "Перезапуск…",
   "app_update_failed": "Не удалось обновить приложение. Проверьте подробности и повторите попытку.",
-  "app_update_unsupported": "Для этой платформы нет обновления, которое можно установить."
+  "app_update_unsupported": "Для этой платформы нет обновления, которое можно установить.",
+  "translator_counters": "Счётчики текста",
+  "counter_characters": "Показывать число символов",
+  "counter_words": "Показывать число слов",
+  "counter_labels": "Показывать подписи счётчиков",
+  "counter_hint": "Показывайте один счётчик, оба или скройте их. Изменения сохраняются автоматически.",
+  "translator_words": "Слова",
+  "download_size_about": "Около {size}",
+  "download_size_unreported": "Размер не указан",
+  "runtime_file": "Файл среды выполнения",
+  "app_msix_download": "Скачать MSIX",
+  "app_msix_hint": "Этой установкой управляет Windows. Закройте приложение перед установкой скачанного MSIX."
 }

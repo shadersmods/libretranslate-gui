@@ -12,6 +12,10 @@ Upstream authors: Dioxus Labs and DogeDark. Licensed under MIT OR Apache-2.0. Th
 
 The app uses unmodified Dioxus desktop 0.7.10 from crates.io. [Upstream source](https://github.com/DioxusLabs/dioxus/tree/v0.7.10/packages/desktop). Upstream authors: Dioxus Labs and contributors. Licensed under MIT OR Apache-2.0; the license texts are included in `licenses/dioxus-desktop-MIT.txt` and `licenses/dioxus-desktop-APACHE.txt`.
 
+# Text segmentation
+
+Word counting uses [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation) 1.13.3. Copyright (c) 2015 The Rust Project Developers. MIT OR Apache-2.0; the license texts are included in `licenses/unicode-segmentation-MIT.txt` and `licenses/unicode-segmentation-APACHE.txt`.
+
 # Flag icons
 
 Country and regional SVG files in `assets/flags/` come from [lipis/flag-icons](https://github.com/lipis/flag-icons), pinned to revision `ac7e0eb3259eb62aa6100c435607e2fe03896a97`. Copyright Lipis. MIT license included in `licenses/flag-icons-MIT.txt`. The Esperanto flag (`eo.svg`) is an app-authored addition. Flags are visual aids alongside explicit language names and codes.

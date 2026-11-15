@@ -248,6 +248,11 @@ fn Rail() -> Element {
         }
         Button { class: "rail-button rail-add", title: locale.text("add_instance"), aria_label: locale.text("add_instance"), disabled: s.fatal.is_some(), onclick: move |_| state.write().add(), Icon { kind: "plus" } span { class: "rail-label", {locale.text("add_instance")} } }
         div { class: "rail-spacer" }
+        if let Some(release)=s.app_update.as_ref() {
+            Button {class:"rail-button rail-update",title:format!("{}: {}",locale.text("app_update_available"),release.tag_name),aria_label:format!("{}: {}",locale.text("app_update_available"),release.tag_name),aria_haspopup:"dialog",aria_controls:"app-update-content",aria_expanded:s.app_update_open,onclick:move |_|state.write().app_update_open=true,
+                Icon {kind:"download"} span {class:"rail-update-dot",aria_hidden:"true"} span {class:"rail-label",{locale.text("app_update_available")}}
+            }
+        }
         Button { class: "rail-button", title: locale.text("theme"), aria_label: locale.text("theme"), onclick: move |_| { let theme = state.read().preferences.theme; state.write().set_theme(if theme == Theme::Light { Theme::Dark } else { Theme::Light }); }, Icon { kind: "sun" } span { class: "rail-label", {locale.text("theme")} } }
         Button { class: if s.page == Page::Options { "rail-button active" } else { "rail-button" }, title: locale.text("options"), aria_label: locale.text("options"), onclick: move |_| state.write().page = Page::Options, Icon { kind: "options" } span { class: "rail-label", {locale.text("options")} } }
     } }
@@ -465,18 +470,18 @@ fn InstanceForm(instance: Instance, creating: bool, editable: bool) -> Element {
     let candidate = instance.clone();
     rsx! {
         form { class: "instance-form", onsubmit: move |event| { event.prevent_default(); if creating { state.write().save_instance(candidate.clone()); } },
-            fieldset { disabled: !editable,
+            fieldset {
                 div { class: "form-grid",
-                    div { class: "field field-wide field-name", label { r#for: "instance-name", {locale.text("name")} } Input { id: "instance-name", name: "name", value: instance.name, maxlength: "64", required: true, oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.name = event.value()) } }
-                    div { class: "field", label { r#for: "instance-port", {locale.text("port")} } Input { id: "instance-port", name: "port", r#type: "number", min: "1024", max: "65535", required: true, value: "{instance.port}", oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.port = event.value().parse().unwrap_or_default()) } PortStatus { id, port: instance.port } }
-                    div { class: "field", label { r#for: "instance-threads", {locale.text("threads")} } Input { id: "instance-threads", name: "threads", r#type: "number", min: "1", max: "{thread_limit}", aria_describedby: "thread-limit", required: true, value: "{instance.threads}", oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.threads = event.value().parse().unwrap_or_default()) } p { id: "thread-limit", class: "field-hint", "{thread_hint}" } }
+                    div { class: "field field-wide field-name", label { r#for: "instance-name", {locale.text("name")} } Input { id: "instance-name", name: "name", disabled: !editable, value: instance.name, maxlength: "64", required: true, oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.name = event.value()) } }
+                    div { class: "field", label { r#for: "instance-port", {locale.text("port")} } Input { id: "instance-port", name: "port", disabled: !editable, r#type: "number", min: "1024", max: "65535", required: true, value: "{instance.port}", oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.port = event.value().parse().unwrap_or_default()) } PortStatus { id, port: instance.port, disabled: !editable } }
+                    div { class: "field", label { r#for: "instance-threads", {locale.text("threads")} } Input { id: "instance-threads", name: "threads", disabled: !editable, r#type: "number", min: "1", max: "{thread_limit}", aria_describedby: "thread-limit", required: true, value: "{instance.threads}", oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.threads = event.value().parse().unwrap_or_default()) } p { id: "thread-limit", class: "field-hint", "{thread_hint}" } }
                     div { class: "field field-languages", LanguageRepeater { id, languages: instance.languages, disabled: !editable } }
                     div { class: "field field-device", label { r#for: "instance-device", {locale.text("device")} }
                         Dropdown { id: "instance-device", label: locale.text("device"), value: if instance.device == Device::Cuda { "cuda".to_string() } else { "cpu".to_string() }, choices: vec![Choice::new("cpu", locale.text("cpu")), Choice { icon: Some("cuda".into()), value: "cuda".into(), label: locale.text("cuda").into(), disabled: !available }], disabled: !editable, onchange: move |value: String| state.write().edit(id, |draft| draft.device = if value == "cuda" { Device::Cuda } else { Device::Cpu }) }
                         GpuSummary {}
                     }
-                    NumberSetting { id:"char-limit", label_key:"char_limit", value:instance.server.char_limit, onchange:move|value|state.write().edit(id,|draft|draft.server.char_limit=value) }
-                    NumberSetting { id:"batch-limit", label_key:"batch_limit", value:instance.server.batch_limit, onchange:move|value|state.write().edit(id,|draft|draft.server.batch_limit=value) }
+                    NumberSetting { id:"char-limit", label_key:"char_limit", value:instance.server.char_limit, disabled: !editable, onchange:move|value|state.write().edit(id,|draft|draft.server.char_limit=value) }
+                    NumberSetting { id:"batch-limit", label_key:"batch_limit", value:instance.server.batch_limit, disabled: !editable, onchange:move|value|state.write().edit(id,|draft|draft.server.batch_limit=value) }
                 }
             }
             if !editable { p { class: "field-hint", {locale.text("stop_to_edit")} } }
@@ -494,7 +499,7 @@ fn InstanceForm(instance: Instance, creating: bool, editable: bool) -> Element {
 }
 
 #[component]
-fn PortStatus(id: Uuid, port: ReadSignal<u16>) -> Element {
+fn PortStatus(id: Uuid, port: ReadSignal<u16>, #[props(default)] disabled: bool) -> Element {
     let mut state = use_context::<Signal<AppState>>();
     let mut refresh = use_signal(|| 0u64);
     use_future(move || async move {
@@ -581,7 +586,7 @@ fn PortStatus(id: Uuid, port: ReadSignal<u16>) -> Element {
         .collect::<Vec<_>>();
     rsx! { div { class: "port-check-row",
         span { class: "port-check {class}", role: "status", aria_live: "polite", Icon { kind: icon } "{text}" }
-        Button { r#type: "button", class: "text-button port-find", title: locale.text("find_free_port"), aria_label: locale.text("find_free_port"), onclick: move |_| {
+        Button { r#type: "button", class: "text-button port-find", disabled, title: locale.text("find_free_port"), aria_label: locale.text("find_free_port"), onclick: move |_| {
             let assigned = assigned.clone();
             spawn(async move { if let Ok(Some(found)) = tokio::task::spawn_blocking(move || network::find_free_port(5000, &assigned)).await { state.write().edit(id, |draft| { if draft.port == selected { draft.port = found; } }); } });
         }, Icon { kind: "repair" } span { class: "action-label", {locale.text("find_free_port")} } }
@@ -599,10 +604,10 @@ fn GpuSummary() -> Element {
             if info.available() { p { class: "gpu-device", {locale.text("gpu_detected")} ": " {info.devices.join(", ")} } p { class: "field-hint", {locale.text("gpu_note")} } }
             else { p { class: "field-hint", {locale.text(if gpu::supported_platform() { "gpu_missing" } else { "cuda_unsupported" })} } }
         } else { p { class: "field-hint", {locale.text("gpu_checking")} } }
-        Button { r#type: "button", class: "text-button", disabled: s.gpu.is_none(), onclick: move |_| {
+        Button { r#type: "button", class: "secondary gpu-rescan", disabled: s.gpu.is_none(), onclick: move |_| {
             state.write().gpu = None;
-            spawn(async move { let info = tokio::task::spawn_blocking(gpu::detect).await.unwrap_or_default(); state.write().gpu = Some(info); });
-        }, {locale.text("rescan_gpu")} }
+            dioxus_core::spawn_forever(async move { let info = tokio::task::spawn_blocking(gpu::detect).await.unwrap_or_default(); state.write().gpu = Some(info); });
+        }, if s.gpu.is_none() {span {class:"spinner",aria_hidden:"true"}} else {Icon {kind:"refresh"}} {locale.text(if s.gpu.is_none() {"gpu_checking"} else {"rescan_gpu"})} }
     } }
 }
 
@@ -677,6 +682,13 @@ fn Options() -> Element {
             h2 { {locale.text("appearance")} }
             label { r#for: "theme-choice", {locale.text("theme")} }
             Dropdown { id: "theme-choice", label: locale.text("theme"), value: preferences.theme.code().to_string(), choices: theme_choices(locale), onchange: move |value: String| state.write().set_theme(Theme::from_code(&value)) }
+        }
+        section { class: "options-section counter-options",
+            h2 { {locale.text("translator_counters")} }
+            div {class:"switch-row", label {r#for:"counter-characters",{locale.text("counter_characters")}} Switch {id:"counter-characters",class:"dx-switch",checked:Some(preferences.translator_counters.characters),on_checked_change:move |checked| {let mut s=state.write();let mut counters=s.preferences.translator_counters.clone();counters.characters=checked;s.set_translator_counters(counters);},span {class:"switch-thumb"}}}
+            div {class:"switch-row", label {r#for:"counter-words",{locale.text("counter_words")}} Switch {id:"counter-words",class:"dx-switch",checked:Some(preferences.translator_counters.words),on_checked_change:move |checked| {let mut s=state.write();let mut counters=s.preferences.translator_counters.clone();counters.words=checked;s.set_translator_counters(counters);},span {class:"switch-thumb"}}}
+            div {class:"switch-row", label {r#for:"counter-labels",{locale.text("counter_labels")}} Switch {id:"counter-labels",class:"dx-switch",checked:Some(preferences.translator_counters.labels),disabled:!preferences.translator_counters.characters&&!preferences.translator_counters.words,on_checked_change:move |checked| {let mut s=state.write();let mut counters=s.preferences.translator_counters.clone();counters.labels=checked;s.set_translator_counters(counters);},span {class:"switch-thumb"}}}
+            p {class:"field-hint",{locale.text("counter_hint")}}
         }
         section { class: "options-section",
             h2 { {locale.text("storage_title")} }

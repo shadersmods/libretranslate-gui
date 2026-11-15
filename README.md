@@ -45,6 +45,7 @@ Translation runs on your computer and works offline once setup is complete. You 
 Download your platform's package from [Releases](https://github.com/shadersmods/libretranslate-gui/releases).
 
 - **Windows:** Run the `.msi` installer, then open **LibreTranslate GUI** from the Start menu. It installs for your Windows account without administrator access. A portable `.zip` is also available; extract it into a writable folder and keep the executable beside `assets/`.
+- An **unsigned MSIX** is also available for Windows 11 testing. See the [MSIX instructions](docs/usage.md#unsigned-msix) before installing it.
 - **macOS:** Extract the ZIP and open the included `.app` bundle. Keep its contents intact.
 - **Linux:** Extract the `.tar.gz` into a writable folder and keep the executable beside `assets/`.
 
@@ -101,11 +102,14 @@ cargo test --locked
 python tests/model_sync.py
 python tests/release_packaging.py
 python tests/windows_installer.py
+python tests/windows_msix.py
 ```
 
 CI runs the Python tests with Python 3.11. The default test suite does not download translation models or require a GPU. The [verification guide](docs/usage.md#verification) covers the optional runtime tests.
 
 Windows CI also builds and tests the MSI. For a local installer build, use a Visual Studio developer shell with Python 3.11 and MSBuild, build the desktop app, then run `python .github/package_release.py` and `python .github/build_msi.py`. The pinned WiX SDK is restored automatically. Both the ZIP and MSI, with SHA-256 files, appear in `release/`.
+
+Release filenames include **Portable** or **Installer**. Downloads without those words are compatibility copies for the in-app updater in versions 0.2.8 and earlier.
 
 ## Reporting problems
 

@@ -29,6 +29,7 @@ pub fn Icon(kind: String) -> Element {
         "copy" => asset!("/assets/icons/copy.svg"),
         "download" => asset!("/assets/icons/download.svg"),
         "repair" => asset!("/assets/icons/repair.svg"),
+        "refresh" => asset!("/assets/icons/refresh.svg"),
         "swap" => asset!("/assets/icons/swap.svg"),
         "models" => asset!("/assets/icons/models.svg"),
         "chart" => asset!("/assets/icons/chart.svg"),

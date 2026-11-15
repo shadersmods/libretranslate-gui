@@ -342,5 +342,16 @@
   "app_update_verifying": "Frissítés ellenőrzése…",
   "app_update_restarting": "Újraindítás…",
   "app_update_failed": "A frissítés nem sikerült. Nézd meg a részleteket, majd próbáld újra.",
-  "app_update_unsupported": "Ehhez a platformhoz nincs telepíthető frissítés."
+  "app_update_unsupported": "Ehhez a platformhoz nincs telepíthető frissítés.",
+  "translator_counters": "Szövegszámlálók",
+  "counter_characters": "Karakterszám megjelenítése",
+  "counter_words": "Szószám megjelenítése",
+  "counter_labels": "Számlálók feliratainak megjelenítése",
+  "counter_hint": "Megjelenítheti az egyik vagy mindkét számlálót, vagy elrejtheti őket. A módosítások automatikusan mentődnek.",
+  "translator_words": "Szavak",
+  "download_size_about": "Körülbelül {size}",
+  "download_size_unreported": "A méret nincs megadva",
+  "runtime_file": "Futtatókörnyezeti fájl",
+  "app_msix_download": "MSIX letöltése",
+  "app_msix_hint": "Ezt a telepítést a Windows kezeli. A letöltött MSIX telepítése előtt zárja be az alkalmazást."
 }

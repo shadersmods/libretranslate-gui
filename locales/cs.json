@@ -342,5 +342,16 @@
   "app_update_verifying": "Ověřování aktualizace…",
   "app_update_restarting": "Restartování…",
   "app_update_failed": "Aktualizace se nezdařila. Zkontrolujte podrobnosti a zkuste to znovu.",
-  "app_update_unsupported": "Pro tuto platformu není dostupná aktualizace k instalaci."
+  "app_update_unsupported": "Pro tuto platformu není dostupná aktualizace k instalaci.",
+  "translator_counters": "Počítadla textu",
+  "counter_characters": "Zobrazit počet znaků",
+  "counter_words": "Zobrazit počet slov",
+  "counter_labels": "Zobrazit popisky počítadel",
+  "counter_hint": "Zobrazte jedno počítadlo, obě nebo žádné. Změny se ukládají automaticky.",
+  "translator_words": "Slova",
+  "download_size_about": "Přibližně {size}",
+  "download_size_unreported": "Velikost neuvedena",
+  "runtime_file": "Soubor běhového prostředí",
+  "app_msix_download": "Stáhnout MSIX",
+  "app_msix_hint": "Tuto instalaci spravuje Windows. Před instalací staženého MSIX aplikaci zavřete."
 }

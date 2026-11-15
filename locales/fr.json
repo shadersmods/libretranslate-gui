@@ -342,5 +342,16 @@
   "app_update_verifying": "Vérification de la mise à jour…",
   "app_update_restarting": "Redémarrage…",
   "app_update_failed": "La mise à jour a échoué. Consultez les détails et réessayez.",
-  "app_update_unsupported": "Aucune mise à jour installable n'est disponible pour cette plateforme."
+  "app_update_unsupported": "Aucune mise à jour installable n'est disponible pour cette plateforme.",
+  "translator_counters": "Compteurs de texte",
+  "counter_characters": "Afficher le nombre de caractères",
+  "counter_words": "Afficher le nombre de mots",
+  "counter_labels": "Afficher les libellés des compteurs",
+  "counter_hint": "Affichez un compteur, les deux ou aucun. Les modifications sont enregistrées automatiquement.",
+  "translator_words": "Mots",
+  "download_size_about": "Environ {size}",
+  "download_size_unreported": "Taille non indiquée",
+  "runtime_file": "Fichier de l’environnement d’exécution",
+  "app_msix_download": "Télécharger le MSIX",
+  "app_msix_hint": "Windows gère cette installation. Fermez l’application avant d’installer le MSIX téléchargé."
 }

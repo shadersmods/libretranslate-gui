@@ -342,5 +342,16 @@
   "app_update_verifying": "正在验证更新…",
   "app_update_restarting": "正在重启…",
   "app_update_failed": "更新失败。请查看详情后重试。",
-  "app_update_unsupported": "此平台暂无可安装的更新。"
+  "app_update_unsupported": "此平台暂无可安装的更新。",
+  "translator_counters": "文本计数",
+  "counter_characters": "显示字符数",
+  "counter_words": "显示字词数",
+  "counter_labels": "显示计数标签",
+  "counter_hint": "显示其中一项、两项，或全部隐藏。更改会自动保存。",
+  "translator_words": "字词",
+  "download_size_about": "约 {size}",
+  "download_size_unreported": "未提供大小",
+  "runtime_file": "运行环境文件",
+  "app_msix_download": "下载 MSIX",
+  "app_msix_hint": "此安装由 Windows 管理。安装下载的 MSIX 前请关闭应用。"
 }

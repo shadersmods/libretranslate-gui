@@ -35,6 +35,13 @@ pub struct Job {
 }
 
 pub fn platform() -> Option<&'static str> {
+    if crate::installation::is_msix() {
+        return Some(if crate::installation::is_unsigned_msix() {
+            "Windows-x64-Unsigned.msix"
+        } else {
+            "Windows-x64.msix"
+        });
+    }
     platform_package(
         std::env::consts::OS,
         std::env::consts::ARCH,
@@ -52,6 +59,19 @@ fn platform_package(os: &str, arch: &str, msi: bool) -> Option<&'static str> {
     }
 }
 pub fn package_name(release: &Release) -> Option<String> {
+    let platform = platform()?;
+    Some(format!(
+        "LibreTranslate-GUI-{}-{}-{}",
+        release.tag_name.trim_start_matches('v'),
+        if platform.ends_with(".msi") || platform.ends_with(".msix") {
+            "Installer"
+        } else {
+            "Portable"
+        },
+        platform
+    ))
+}
+pub fn legacy_package_name(release: &Release) -> Option<String> {
     Some(format!(
         "LibreTranslate-GUI-{}-{}",
         release.tag_name.trim_start_matches('v'),
@@ -164,6 +184,10 @@ fn create_parent(root: &Path, relative: &Path) -> Result<()> {
 
 pub fn prepare(release: &Release, progress: SharedProgress) -> Result<Job> {
     ensure!(
+        !crate::installation::is_msix(),
+        "Windows manages MSIX installations. Download and install the MSIX update instead."
+    );
+    ensure!(
         crate::app_updates::newer(&release.tag_name, env!("CARGO_PKG_VERSION")),
         "The release is not newer than this app"
     );
@@ -225,9 +249,9 @@ pub fn prepare(release: &Release, progress: SharedProgress) -> Result<Job> {
     } else {
         let unpacked = staging.join("bundle");
         fs::create_dir(&unpacked)?;
-        let package = package_name(release).unwrap();
+        let package = asset.name.replace("-Portable-", "-");
         let prefix = package.trim_end_matches(".tar.gz").trim_end_matches(".zip");
-        extract(&archive, &unpacked, prefix, package.ends_with(".zip"))?
+        extract(&archive, &unpacked, prefix, asset.name.ends_with(".zip"))?
     };
     progress.lock().unwrap().phase = 2;
     let executable = current
@@ -459,6 +483,18 @@ fn launch_helper_mode(job: &Job, mode: &str) -> Result<()> {
         .arg(mode)
         .arg(job.staging.join("job.json"))
         .current_dir(&job.root);
+    let log_path = job.staging.join("helper.log");
+    if log_path.exists() {
+        ensure!(
+            !fs::symlink_metadata(&log_path)?.file_type().is_symlink(),
+            "Invalid update helper log"
+        );
+    }
+    let log = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)?;
+    command.stdout(log.try_clone()?).stderr(log);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -576,6 +612,16 @@ fn rollback(job: &Job) -> Result<()> {
     if journal.complete {
         return Ok(());
     }
+    if let Some(newer) = superseding_update(job)? {
+        durable_json(
+            &job.staging.join("superseded-by.json"),
+            &serde_json::json!({"stage":newer.staging,"version":newer.version}),
+        )?;
+        fs::remove_file(job.staging.join("transaction.json"))?;
+        sync_directory(&job.staging)?;
+        storage::finished(job, false)?;
+        return Ok(());
+    }
     ensure!(
         journal.changes.len() <= job.files.len(),
         "Invalid recovery file count"
@@ -621,6 +667,92 @@ fn rollback(job: &Job) -> Result<()> {
     sync_directory(&job.staging)
 }
 
+fn stage_job(root: &Path, stage: &Path) -> Result<Job> {
+    let path = stage.join("job.json");
+    let metadata = fs::symlink_metadata(&path)?;
+    ensure!(
+        metadata.is_file() && !metadata.file_type().is_symlink() && metadata.len() < 128 * 1024,
+        "Invalid recovery job"
+    );
+    let job: Job = serde_json::from_slice(&fs::read(path)?)?;
+    validate_job(&job)?;
+    ensure!(
+        storage::same_path(&job.root, root) && storage::same_path(&job.staging, stage),
+        "Invalid recovery location"
+    );
+    Ok(job)
+}
+
+// A legacy helper can install a newer release while an earlier failed attempt
+// still has a journal. That earlier backup must never undo the successful install.
+fn superseding_update(job: &Job) -> Result<Option<Job>> {
+    let Some(created) = storage::created(&job.staging) else {
+        return Ok(None);
+    };
+    let version = semver::Version::parse(job.version.trim_start_matches('v'))?;
+    for entry in fs::read_dir(job.root.join(".updates"))? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir()
+            || entry.file_type()?.is_symlink()
+            || storage::same_path(&entry.path(), &job.staging)
+        {
+            continue;
+        }
+        if storage::created(&entry.path()).is_none_or(|time| time < created) {
+            continue;
+        }
+        if !read_journal(&entry.path())
+            .ok()
+            .flatten()
+            .is_some_and(|journal| journal.complete)
+        {
+            continue;
+        }
+        let Ok(candidate) = stage_job(&job.root, &entry.path()) else {
+            continue;
+        };
+        if semver::Version::parse(candidate.version.trim_start_matches('v'))? >= version {
+            return Ok(Some(candidate));
+        }
+    }
+    Ok(None)
+}
+
+fn recover_other_transactions(job: &Job) -> Result<()> {
+    let mut pending = Vec::new();
+    for entry in fs::read_dir(job.root.join(".updates"))? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir()
+            || entry.file_type()?.is_symlink()
+            || storage::same_path(&entry.path(), &job.staging)
+        {
+            continue;
+        }
+        if read_journal(&entry.path())?.is_none_or(|journal| journal.complete) {
+            continue;
+        }
+        let lease = storage::lease(&entry.path())?
+            .context("Another update is still running. Close other app windows and try again.")?;
+        let previous = stage_job(&job.root, &entry.path())?;
+        ensure!(
+            !parent_alive(previous.parent),
+            "Another app window is using an interrupted update. Close it before updating."
+        );
+        pending.push((
+            storage::created(&entry.path()).unwrap_or_default(),
+            previous,
+            lease,
+        ));
+    }
+    pending.sort_by_key(|(created, _, _)| std::cmp::Reverse(*created));
+    for (_, previous, _lease) in pending {
+        rollback(&previous)
+            .context("Could not recover the previous update before installing this one")?;
+        storage::finished(&previous, false)?;
+    }
+    Ok(())
+}
+
 /// Run recovery before loading any bundle assets; the helper can replace the executable on Windows.
 pub fn recover_if_needed() -> Result<bool> {
     let executable = dunce::canonicalize(std::env::current_exe()?)?;
@@ -653,6 +785,21 @@ pub fn recover_if_needed() -> Result<bool> {
         if parent_alive(job.parent) {
             continue;
         }
+        if superseding_update(&job)?.is_some() {
+            rollback(&job)?;
+            continue;
+        }
+        // Recovery must use the current recovery rules, including when the
+        // failed transaction was created by an older release's helper.
+        let helper = job.staging.join(if cfg!(windows) {
+            "helper.exe"
+        } else {
+            "helper"
+        });
+        let copied = tempfile::NamedTempFile::new_in(&job.staging)?;
+        fs::copy(&executable, copied.path())?;
+        copied.as_file().sync_all()?;
+        copied.persist(helper)?;
         job.parent = std::process::id();
         durable_json(&job.staging.join("job.json"), &job)?;
         drop(lease);
@@ -664,6 +811,7 @@ pub fn recover_if_needed() -> Result<bool> {
 
 fn install(job: &Job) -> Result<()> {
     validate_job(job)?;
+    recover_other_transactions(job)?;
     if job.msi {
         return install_msi(job);
     }
@@ -873,6 +1021,125 @@ pub fn previous_failure() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn tracked_job(root: &Path, created: u64, version: &str) -> Job {
+        let mut job = job(root, vec![executable_name()]);
+        let stage = job
+            .root
+            .join(".updates")
+            .join(uuid::Uuid::new_v4().to_string());
+        fs::rename(&job.staging, &stage).unwrap();
+        job.staging = stage;
+        job.version = version.into();
+        fs::write(
+            job.staging.join("job.json"),
+            serde_json::to_vec(&job).unwrap(),
+        )
+        .unwrap();
+        fs::write(
+            job.staging.join("stage.json"),
+            serde_json::to_vec(
+                &serde_json::json!({"schema":1,"created":created,"finished":null,"phase":"ready"}),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        job
+    }
+    fn interrupted(job: &Job, backup: &str) {
+        fs::create_dir_all(job.staging.join("backup")).unwrap();
+        fs::write(job.staging.join("backup").join(executable_name()), backup).unwrap();
+        durable_json(
+            &job.staging.join("transaction.json"),
+            &Journal {
+                complete: false,
+                changes: vec![Change {
+                    relative: executable_name().into(),
+                    original: true,
+                }],
+            },
+        )
+        .unwrap();
+    }
+    #[test]
+    fn legacy_interrupted_update_cannot_undo_a_later_successful_update() {
+        let dir = tempfile::tempdir().unwrap();
+        let earlier = tracked_job(dir.path(), 10, "v0.3.0");
+        interrupted(&earlier, "old 0.2.7");
+        let applied = tracked_job(dir.path(), 20, "v0.3.0");
+        durable_json(
+            &applied.staging.join("transaction.json"),
+            &Journal {
+                complete: true,
+                changes: vec![],
+            },
+        )
+        .unwrap();
+        fs::write(dir.path().join(executable_name()), "new 0.3.0").unwrap();
+        fs::write(
+            dir.path().join("libretranslate-desktop.json"),
+            "private settings",
+        )
+        .unwrap();
+        rollback(&earlier).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.path().join(executable_name())).unwrap(),
+            "new 0.3.0"
+        );
+        assert!(!earlier.staging.join("transaction.json").exists());
+        assert!(earlier.staging.join("superseded-by.json").is_file());
+        assert_eq!(
+            fs::read_to_string(dir.path().join("libretranslate-desktop.json")).unwrap(),
+            "private settings"
+        );
+    }
+    #[test]
+    fn new_update_recovers_previous_partial_files_before_taking_its_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let earlier = tracked_job(dir.path(), 10, "v0.3.0");
+        interrupted(&earlier, "last working binary");
+        fs::write(
+            dir.path().join(executable_name()),
+            "partial earlier attempt",
+        )
+        .unwrap();
+        let next = tracked_job(dir.path(), 20, "v0.3.0");
+        fs::write(
+            next.staging.join("bundle").join(executable_name()),
+            "new binary",
+        )
+        .unwrap();
+        install(&next).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.path().join(executable_name())).unwrap(),
+            "new binary"
+        );
+        assert_eq!(
+            fs::read_to_string(next.staging.join("backup").join(executable_name())).unwrap(),
+            "last working binary"
+        );
+        assert!(!earlier.staging.join("transaction.json").exists());
+    }
+    #[test]
+    fn failed_attempt_after_a_successful_install_still_restores_that_install() {
+        let dir = tempfile::tempdir().unwrap();
+        let applied = tracked_job(dir.path(), 10, "v0.3.0");
+        durable_json(
+            &applied.staging.join("transaction.json"),
+            &Journal {
+                complete: true,
+                changes: vec![],
+            },
+        )
+        .unwrap();
+        let failed = tracked_job(dir.path(), 20, "v0.4.0");
+        interrupted(&failed, "working 0.3.0");
+        fs::write(dir.path().join(executable_name()), "partial 0.4.0").unwrap();
+        rollback(&failed).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.path().join(executable_name())).unwrap(),
+            "working 0.3.0"
+        );
+    }
     #[test]
     fn invalid_parent_pids_never_refer_to_a_process_group() {
         assert!(!parent_alive(0));

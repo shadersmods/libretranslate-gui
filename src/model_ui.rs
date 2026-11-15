@@ -21,7 +21,12 @@ fn language(locale: Locale, code: &str) -> String {
 #[component]
 pub fn ModelTransfer(download: ModelDownload) -> Element {
     let locale = use_context::<Signal<AppState>>().read().locale;
-    let mut name = language(locale, &download.source);
+    let runtime = download.kind == DownloadKind::Runtime;
+    let mut name = if runtime {
+        download.source.clone()
+    } else {
+        language(locale, &download.source)
+    };
     if let Some(target) = &download.target {
         name = format!("{} → {}", name, language(locale, target));
     }
@@ -29,13 +34,21 @@ pub fn ModelTransfer(download: ModelDownload) -> Element {
         .total
         .map(models::format_bytes)
         .unwrap_or_else(|| locale.text("download_total_unknown").into());
-    let sizes = if download.phase == DownloadPhase::Complete {
+    let sizes = if runtime && download.downloaded == 0 && download.total.is_none() {
+        download
+            .size_hint
+            .as_deref()
+            .map(|size| locale.text("download_size_about").replace("{size}", size))
+            .unwrap_or_else(|| locale.text("download_size_unreported").into())
+    } else if download.phase == DownloadPhase::Complete {
         models::format_bytes(download.downloaded)
     } else {
         format!("{} / {}", models::format_bytes(download.downloaded), total)
     };
     let phase = download.phase.label();
-    let progress = if matches!(
+    let progress = if download.phase == DownloadPhase::Complete {
+        Some(100.0)
+    } else if matches!(
         download.phase,
         DownloadPhase::Queued | DownloadPhase::Validating
     ) {
@@ -51,7 +64,7 @@ pub fn ModelTransfer(download: ModelDownload) -> Element {
     };
     rsx! { div {class:"model-transfer {class}",
         div {class:"transfer-heading",
-            span {class:"transfer-name", LanguageFlag {code:download.source.clone()} "{name}" if download.kind==DownloadKind::Sentence { span {class:"transfer-kind",{locale.text("sentence_model")}} } }
+            span {class:"transfer-name", if runtime {Icon {kind:"download"}} else {LanguageFlag {code:download.source.clone()}} "{name}" if runtime {span {class:"transfer-kind",{locale.text("runtime_file")}}} else if download.kind==DownloadKind::Sentence { span {class:"transfer-kind",{locale.text("sentence_model")}} } }
             span {class:"transfer-phase",{locale.text(phase)}}
         }
         Progress {class:"model-transfer-bar", aria_label:format!("{}: {}",name,locale.text(phase)), aria_valuetext:format!("{} · {}",sizes,locale.text(phase)), value:progress, ProgressIndicator {class:"model-transfer-fill"} }

@@ -12,6 +12,7 @@ use std::{
     io::Read,
     time::{Duration, Instant},
 };
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone, Debug)]
 pub struct Draft {
@@ -45,6 +46,12 @@ impl Default for Draft {
     }
 }
 impl Draft {
+    fn awaiting_result(&self) -> bool {
+        !self.input.trim().is_empty()
+            && !self.target.is_empty()
+            && self.error.is_none()
+            && self.translated_revision != Some(self.revision)
+    }
     pub fn changed(&mut self) {
         self.output.clear();
         self.detected = None;
@@ -403,6 +410,13 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
     let limit = instance().server.char_limit;
     let too_long = limit.is_some_and(|limit| count > limit as usize);
     let pending = draft.pending_revision.is_some();
+    let loading = interactive && !too_long && draft.awaiting_result();
+    let counters = state.read().preferences.translator_counters.clone();
+    let words = if counters.words {
+        draft.input.unicode_words().count()
+    } else {
+        0
+    };
     let can_swap = interactive && (draft.source != "auto" || draft.detected.is_some());
     let copied = draft.output.clone();
     let detected = draft
@@ -436,12 +450,19 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
                     textarea {id:"translator-input",aria_label:locale.text("translator_input"),placeholder:locale.text("translator_input"),dir:"auto",value:draft.input.clone(),oncompositionstart:move |_|composing.set(true),oncompositionend:move |_|{composing.set(false);state.write().translations.entry(id).or_default().changed();},oninput:move |event|{
                         let mut s=state.write();let draft=s.translations.entry(id).or_default();draft.input=event.value();draft.changed();
                     }}
-                    div {class:"translator-pane-footer",span{class:"translator-count",aria_label:locale.text("translator_characters"),"{count}" if let Some(limit)=limit {" / {limit}"}}
+                    div {class:"translator-pane-footer",div {class:"translator-counters",
+                        if counters.characters {span {class:"translator-count",aria_label:format!("{count} {}",locale.text("translator_characters")),title:locale.text("translator_characters"),bdi {dir:"ltr","{count}" if let Some(limit)=limit {" / {limit}"}} if counters.labels {" " {locale.text("translator_characters")}}}}
+                        if counters.characters&&counters.words {span {class:"counter-separator",aria_hidden:"true","·"}}
+                        if counters.words {span {class:"translator-count",aria_label:format!("{words} {}",locale.text("translator_words")),title:locale.text("translator_words"),bdi {dir:"ltr","{words}"} if counters.labels {" " {locale.text("translator_words")}}}}
+                    }
                         Button{class:"text-button",aria_label:locale.text("translator_clear"),title:locale.text("translator_clear"),disabled:count==0,onclick:move |_|{let mut s=state.write();let draft=s.translations.entry(id).or_default();draft.input.clear();draft.changed();},Icon{kind:"close"}}
                     }
                 }
-                div {class:"translator-pane translator-result",
-                    textarea {aria_label:locale.text("translator_output"),placeholder:locale.text("translator_output"),dir:"auto",readonly:true,value:draft.output.clone()}
+                div {class:"translator-pane translator-result",aria_busy:loading,
+                    div {class:"translator-result-body",
+                        textarea {aria_label:locale.text("translator_output"),placeholder:if loading {""} else {locale.text("translator_output")},dir:"auto",readonly:true,value:draft.output.clone()}
+                        if loading {TranslationSkeleton {text:draft.input.clone()}}
+                    }
                     div {class:"translator-pane-footer",span{class:"field-hint",if let Some(detected)=detected {{locale.text("translator_detected").replace("{language}",&detected)}}}
                         Button{class:"text-button",aria_label:locale.text("translator_copy"),title:locale.text("translator_copy"),disabled:copied.is_empty(),onclick:move |_|state.write().copy(copied.clone()),Icon{kind:"copy"}}
                     }
@@ -452,12 +473,34 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
                     if too_long {p{class:"field-error",{locale.text("translator_limit").replace("{max}",&limit.unwrap_or_default().to_string())}}}
                     else if let Some(problem)=draft.error {p{class:"field-error",{locale.text(problem.key())}} Button{class:"secondary tool-button",disabled:pending,aria_label:locale.text("rescan_gpu"),title:locale.text("rescan_gpu"),onclick:move |_|{state.write().translations.entry(id).or_default().changed();},Icon{kind:"repair"}}}
                 }
-                p{class:"field-hint translator-auto",role:"status",if pending{span{class:"spinner",aria_hidden:"true"}}{locale.text(if pending{"translator_working"}else{"translator_auto"})}}
+                p{class:"field-hint translator-auto",role:"status",if loading{span{class:"spinner",aria_hidden:"true"}}{locale.text(if loading{"translator_working"}else{"translator_auto"})}}
             }}
             TabContent{index:1usize,value:"files",aria_labelledby:"translator-mode-files-tab",tabindex:"-1",class:"translator-mode-panel",crate::translator_files::FileTranslator{instance:instance(),status:status(),source:draft.source,target:draft.target}}
         }
         }
     }}
+}
+
+#[component]
+fn TranslationSkeleton(text: ReadSignal<String>) -> Element {
+    let id = use_hook(|| format!("translation-skeleton-{}", uuid::Uuid::new_v4()));
+    let effect_id = id.clone();
+    use_effect(move || {
+        let _ = text();
+        document::eval(&format!(
+            "const skeletonId={};\n{}",
+            serde_json::to_string(&effect_id).unwrap(),
+            include_str!("../assets/translation-skeleton.js")
+        ));
+    });
+    let cleanup_id = id.clone();
+    use_drop(move || {
+        document::eval(&format!(
+            "window.ltguiSkeletons?.get({})?.dispose();",
+            serde_json::to_string(&cleanup_id).unwrap()
+        ));
+    });
+    rsx! {div {id,class:"translation-skeleton",aria_hidden:"true"}}
 }
 
 fn target_languages(languages: &[Language], source: &str) -> Vec<Language> {
@@ -477,6 +520,36 @@ fn target_languages(languages: &[Language], source: &str) -> Vec<Language> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn result_loading_covers_debounce_and_requests_but_ends_on_error_clear_or_completion() {
+        let mut draft = Draft::default();
+        assert!(!draft.awaiting_result());
+        draft.input = "Hello, world".into();
+        assert!(!draft.awaiting_result());
+        draft.target = "ro".into();
+        draft.changed();
+        assert!(draft.awaiting_result());
+        draft.pending_revision = Some(draft.revision);
+        draft.finish(draft.revision, true, Err(ApiError::Timeout));
+        assert!(!draft.awaiting_result());
+        draft.changed();
+        draft.pending_revision = Some(draft.revision);
+        draft.finish(
+            draft.revision,
+            true,
+            Ok(Translation {
+                text: "Salut, lume".into(),
+                detected: None,
+            }),
+        );
+        assert!(!draft.awaiting_result());
+        draft.input = "New text".into();
+        draft.changed();
+        assert!(draft.awaiting_result());
+        draft.input.clear();
+        draft.changed();
+        assert!(!draft.awaiting_result());
+    }
     #[test]
     fn canonical_api_languages_use_model_names_and_flags() {
         for (api, model) in [("pt-BR", "pb"), ("zh-Hans", "zh"), ("zh-Hant", "zt")] {

@@ -63,11 +63,14 @@ impl Release {
     }
     pub fn update_asset(&self) -> Option<&Asset> {
         let name = crate::self_update::package_name(self)?;
-        self.assets.iter().find(|asset| {
-            asset.name == name
-                && asset
-                    .browser_download_url
-                    .starts_with(&format!("{REPOSITORY}/releases/download/"))
+        let legacy = crate::self_update::legacy_package_name(self)?;
+        [name, legacy].into_iter().find_map(|name| {
+            self.assets.iter().find(|asset| {
+                asset.name == name
+                    && asset
+                        .browser_download_url
+                        .starts_with(&format!("{REPOSITORY}/releases/download/"))
+            })
         })
     }
 }
@@ -185,6 +188,7 @@ fn UpdateDialog() -> Element {
     };
     let open = s.app_update_open;
     let supported = release.update_asset().is_some();
+    let msix = crate::installation::is_msix();
     let candidate = release.clone();
     let notes = release
         .body
@@ -201,8 +205,13 @@ fn UpdateDialog() -> Element {
     } else {
         None
     };
-    rsx! {DialogRoot{id:"app-update-dialog".to_string(),class:"dialog-backdrop",open:Some(open),on_open_change:move|open|if !working(){state.write().app_update_open=open},
-        DialogContent{class:"app-update-dialog",
+    // The controlled dialog ignores passive dismissals from the backdrop.
+    // Explicit controls and Escape remain available before installation begins.
+    rsx! {DialogRoot{id:"app-update-dialog".to_string(),class:"dialog-backdrop",open:Some(open),on_open_change:move|_|{},
+        div {class:"update-dialog-layer",tabindex:"-1",onkeydown:move|event:KeyboardEvent|{
+            if event.key()==Key::Escape && !working(){event.prevent_default();event.stop_propagation();state.write().app_update_open=false;}
+        },
+        DialogContent{id:"app-update-content".to_string(),class:"app-update-dialog",
             div{class:"update-heading",Icon{kind:"download"} DialogTitle{{locale.text("app_update_title")}}}
             DialogDescription{{locale.text("app_update_description").replace("{version}",&release.tag_name)}}
             div{class:"update-versions",span{{locale.text("app_current_version")}}code{{env!("CARGO_PKG_VERSION")}}Icon{kind:"chevron"}code{"{release.tag_name}"}}
@@ -211,8 +220,9 @@ fn UpdateDialog() -> Element {
                 if line.starts_with('#'){h4{dir:"auto","{line.trim_start_matches('#').trim()}"}}
                 else{p{dir:"auto","{line}"}}
             }}
-            p{class:"field-hint",{locale.text("app_download_hint")}}
+            p{class:"field-hint",{locale.text(if msix {"app_msix_hint"}else{"app_download_hint"})}}
             if !supported {p{class:"field-hint",{locale.text("app_update_unsupported")}}}
+            if let Some(error)=s.app_update_error.as_ref() {div {class:"update-error",role:"alert",p {{locale.text("app_update_failed")}} details {summary {{locale.text("technical_details")}} pre {"{error}"}}}}
             if working(){div{class:"update-progress",role:"status",p{{locale.text(match phase{1=>"app_update_verifying",2=>"app_update_restarting",_=>"download_active"})}}
                 Progress{class:"model-transfer-bar",value:percent,aria_label:locale.text("app_update_title"),ProgressIndicator{class:"model-transfer-fill"}}
                 if phase==0 {p{class:"field-hint",dir:"ltr","{bytes}"}}
@@ -221,13 +231,24 @@ fn UpdateDialog() -> Element {
                 Button{class:"secondary",disabled:working(),onclick:move|_|state.write().app_update_open=false,{locale.text("app_update_later")}}
                 Button{class:"primary",disabled:working()||!supported,onclick:move|_|{
                     if working(){return;}
+                    if msix {
+                        if let Some(asset)=candidate.update_asset() {
+                            match webbrowser::open(&asset.browser_download_url) {
+                                Ok(())=>state.write().app_update_open=false,
+                                Err(error)=>{let details=error.to_string();state.write().app_update_error=Some(details.clone());state.write().error("app_update_failed",details);}
+                            }
+                        }
+                        return;
+                    }
+                    state.write().app_update_error=None;
                     let release=candidate.clone();let shared=shared.clone();let initial=crate::self_update::Progress{total:release.update_asset().map(|asset|asset.size).unwrap_or_default(),..Default::default()};*shared.lock().unwrap()=initial;progress.set(initial);working.set(true);
                     let backend=state.read().backend.clone(); let pending=state.read().pending_saves.clone();
                     spawn(async move{let result=tokio::task::spawn_blocking(move||crate::self_update::prepare(&release,shared).and_then(|job|{crate::state::flush_pending(&backend,&pending)?;crate::self_update::launch_helper(&job)})).await;
-                        match result{Ok(Ok(()))=>crate::app::finish_close(state),Ok(Err(error))=>{working.set(false);state.write().error("app_update_failed",format!("{error:#}"));},Err(error)=>{working.set(false);state.write().error("app_update_failed",error.to_string());}}
+                        match result{Ok(Ok(()))=>crate::app::finish_close(state),Ok(Err(error))=>{working.set(false);let details=format!("{error:#}");state.write().app_update_error=Some(details.clone());state.write().error("app_update_failed",details);},Err(error)=>{working.set(false);let details=error.to_string();state.write().app_update_error=Some(details.clone());state.write().error("app_update_failed",details);}}
                     });
-                },Icon{kind:"download"}{locale.text("app_download_update")}}
+                },Icon{kind:"download"}{locale.text(if msix {"app_msix_download"}else{"app_download_update"})}}
             }
+        }
         }
     }}
 }
@@ -235,6 +256,38 @@ fn UpdateDialog() -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn release_downloads_prefer_named_packages_and_accept_legacy_assets() {
+        let mut release = Release {
+            tag_name: "v0.3.0".into(),
+            html_url: format!("{REPOSITORY}/releases/tag/v0.3.0"),
+            body: None,
+            draft: false,
+            prerelease: false,
+            assets: vec![],
+        };
+        let Some(canonical) = crate::self_update::package_name(&release) else {
+            return;
+        };
+        let legacy = crate::self_update::legacy_package_name(&release).unwrap();
+        assert!(canonical.contains("-Portable-") || canonical.contains("-Installer-"));
+        release.assets.push(Asset {
+            name: legacy.clone(),
+            browser_download_url: format!("{REPOSITORY}/releases/download/v0.3.0/{legacy}"),
+            size: 100,
+            digest: None,
+        });
+        assert_eq!(release.update_asset().unwrap().name, legacy);
+        release.assets.push(Asset {
+            name: canonical.clone(),
+            browser_download_url: format!("{REPOSITORY}/releases/download/v0.3.0/{canonical}"),
+            size: 100,
+            digest: None,
+        });
+        assert_eq!(release.update_asset().unwrap().name, canonical);
+        release.assets[1].browser_download_url = "https://example.com/untrusted.zip".into();
+        assert_eq!(release.update_asset().unwrap().name, legacy);
+    }
     #[test]
     fn release_endpoint_distinguishes_no_release_offline_and_valid_updates() {
         use std::{

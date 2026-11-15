@@ -55,7 +55,11 @@ class PackagingTests(unittest.TestCase):
                 archive = packager.package(self.root, system=runner, machine=machine,
                                            target=self.target, tag='v0.2.7')
                 prefix = 'LibreTranslate-GUI-0.2.7-' + suffix.split('.')[0]
-                self.assertEqual(archive.name, 'LibreTranslate-GUI-0.2.7-' + suffix)
+                self.assertEqual(archive.name, 'LibreTranslate-GUI-0.2.7-Portable-' + suffix)
+                legacy = archive.parent / archive.name.replace('-Portable-', '-', 1)
+                self.assertEqual(legacy.read_bytes(), archive.read_bytes())
+                self.assertEqual(legacy.with_suffix(legacy.suffix + '.sha256').read_text().split(),
+                                 [hashlib.sha256(archive.read_bytes()).hexdigest(), legacy.name])
                 if system == 'linux':
                     with tarfile.open(archive) as bundle:
                         names = bundle.getnames()

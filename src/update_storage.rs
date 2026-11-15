@@ -34,6 +34,9 @@ fn now() -> u64 {
         .unwrap_or_default()
         .as_secs()
 }
+pub(super) fn created(stage: &Path) -> Option<u64> {
+    read_info(stage).ok().map(|info| info.created)
+}
 fn directory(path: &Path) -> Result<()> {
     let metadata = fs::symlink_metadata(path)?;
     ensure!(
