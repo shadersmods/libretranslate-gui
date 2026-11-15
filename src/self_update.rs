@@ -165,10 +165,7 @@ pub fn prepare(release: &Release, progress: SharedProgress) -> Result<Job> {
         "Invalid update size"
     );
     let current = dunce::canonicalize(std::env::current_exe()?)?;
-    let root = current
-        .parent()
-        .context("No application folder")?
-        .to_path_buf();
+    let root = application_root(&current)?.to_path_buf();
     let mut preparation =
         storage::Preparation::new(&root).context("The application folder is not writable")?;
     let staging = preparation.path().to_path_buf();
@@ -215,10 +212,10 @@ pub fn prepare(release: &Release, progress: SharedProgress) -> Result<Job> {
     let files = extract(&archive, &unpacked, prefix, package.ends_with(".zip"))?;
     progress.lock().unwrap().phase = 2;
     let executable = current
-        .file_name()
-        .and_then(|name| name.to_str())
+        .strip_prefix(&root)?
+        .to_str()
         .context("Invalid executable name")?
-        .to_string();
+        .replace('\\', "/");
     let job = Job {
         root,
         staging,
@@ -239,7 +236,37 @@ pub fn prepare(release: &Release, progress: SharedProgress) -> Result<Job> {
 }
 pub fn cleanup_old_stages() -> Result<()> {
     let executable = dunce::canonicalize(std::env::current_exe()?)?;
-    storage::maintain(executable.parent().context("No application folder")?)
+    storage::maintain(application_root(&executable)?)
+}
+fn application_root(executable: &Path) -> Result<&Path> {
+    let parent = executable.parent().context("No application folder")?;
+    let bundle = parent.ancestors().nth(2);
+    if parent.file_name().is_some_and(|name| name == "MacOS")
+        && parent
+            .parent()
+            .is_some_and(|path| path.ends_with("Contents"))
+        && let Some(bundle) = bundle.filter(|path| path.extension().is_some_and(|ext| ext == "app"))
+    {
+        return bundle.parent().context("No application bundle folder");
+    }
+    Ok(parent)
+}
+fn macos_bundle_path(path: &Path) -> Option<&Path> {
+    let mut parts = path.components();
+    let Component::Normal(bundle) = parts.next()? else {
+        return None;
+    };
+    if Path::new(bundle).extension()? != "app"
+        || parts.next()? != Component::Normal("Contents".as_ref())
+    {
+        return None;
+    }
+    Some(parts.as_path())
+}
+fn is_executable(path: &Path) -> bool {
+    path == Path::new(executable_name())
+        || macos_bundle_path(path)
+            .is_some_and(|inner| inner == Path::new("MacOS/libretranslate-gui"))
 }
 fn executable_name() -> &'static str {
     if cfg!(windows) {
@@ -259,13 +286,26 @@ fn allowed(path: &Path) -> bool {
     if text.contains(['\\', ':']) {
         return false;
     }
-    text == executable_name()
+    is_executable(path)
         || matches!(
             text.as_ref(),
             "README.md" | "THIRD_PARTY_NOTICES.md" | "locales/README.md"
         )
         || text.starts_with("assets/")
         || text.starts_with("licenses/")
+        || text.starts_with("docs/")
+        || macos_bundle_path(path).is_some_and(|inner| {
+            matches!(inner.to_str(), Some("Info.plist" | "PkgInfo"))
+                || [
+                    "Resources",
+                    "Frameworks",
+                    "PlugIns",
+                    "SharedSupport",
+                    "_CodeSignature",
+                ]
+                .iter()
+                .any(|directory| inner.starts_with(directory))
+        })
 }
 fn relative_entry(name: &Path, prefix: &str) -> Result<PathBuf> {
     let mut parts = name.components();
@@ -346,16 +386,41 @@ fn extract(
             write_entry(&name, size, &mut entry)?;
         }
     }
+    let executables = files
+        .iter()
+        .filter(|name| is_executable(Path::new(name)))
+        .collect::<Vec<_>>();
     ensure!(
-        files.iter().any(|name| name == executable_name())
-            && files.iter().any(|name| name.starts_with("assets/")),
-        "Update is missing its executable or assets"
+        executables.len() == 1,
+        "Update is missing its executable or contains multiple apps"
+    );
+    let executable = Path::new(executables[0]);
+    if macos_bundle_path(executable).is_some() {
+        ensure!(
+            files
+                .iter()
+                .all(|name| macos_bundle_path(Path::new(name)).is_none()
+                    || Path::new(name).components().next() == executable.components().next()),
+            "Update contains multiple application bundles"
+        );
+    }
+    let assets = if macos_bundle_path(executable).is_some() {
+        PathBuf::from(executable.components().next().unwrap().as_os_str())
+            .join("Contents/Resources/assets")
+    } else {
+        PathBuf::from("assets")
+    };
+    ensure!(
+        files
+            .iter()
+            .any(|name| Path::new(name).starts_with(&assets) && Path::new(name) != assets),
+        "Update is missing its assets"
     );
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(
-            destination.join(executable_name()),
+            destination.join(executable),
             fs::Permissions::from_mode(0o755),
         )?;
     }
@@ -400,10 +465,11 @@ fn validate_job(job: &Job) -> Result<()> {
         "Invalid update paths"
     );
     ensure!(
-        Path::new(&job.executable).components().count() == 1
+        (Path::new(&job.executable).components().count() == 1
             && job.executable != "."
             && job.executable != ".."
-            && !job.executable.contains(['/', '\\', ':']),
+            && !job.executable.contains(['/', '\\', ':']))
+            || (allowed(Path::new(&job.executable)) && is_executable(Path::new(&job.executable))),
         "Invalid executable name"
     );
     ensure!(
@@ -418,6 +484,12 @@ fn validate_job(job: &Job) -> Result<()> {
     Ok(())
 }
 fn target(job: &Job, relative: &str) -> PathBuf {
+    if let Some(inner) = macos_bundle_path(Path::new(relative))
+        && macos_bundle_path(Path::new(&job.executable)).is_some()
+        && let Some(Component::Normal(bundle)) = Path::new(&job.executable).components().next()
+    {
+        return job.root.join(bundle).join("Contents").join(inner);
+    }
     job.root.join(if relative == executable_name() {
         job.executable.as_str()
     } else {
@@ -484,8 +556,11 @@ fn rollback(job: &Job) -> Result<()> {
             job.files.contains(&change.relative),
             "Invalid recovery file"
         );
-        create_parent(&job.root, Path::new(&change.relative).parent().unwrap())?;
         let destination = target(job, &change.relative);
+        create_parent(
+            &job.root,
+            destination.strip_prefix(&job.root)?.parent().unwrap(),
+        )?;
         if let Ok(metadata) = fs::symlink_metadata(&destination) {
             ensure!(
                 metadata.is_file() && !metadata.file_type().is_symlink(),
@@ -520,7 +595,7 @@ fn rollback(job: &Job) -> Result<()> {
 /// Run recovery before loading any bundle assets; the helper can replace the executable on Windows.
 pub fn recover_if_needed() -> Result<bool> {
     let executable = dunce::canonicalize(std::env::current_exe()?)?;
-    let root = executable.parent().context("Missing application folder")?;
+    let root = application_root(&executable)?;
     let updates = root.join(".updates");
     if !updates.is_dir() {
         return Ok(false);
@@ -566,13 +641,16 @@ fn install(job: &Job) -> Result<()> {
     let mut journal = Journal::default();
     durable_json(&job.staging.join("transaction.json"), &journal)?;
     let mut files = job.files.clone();
-    files.sort_by_key(|name| name == executable_name());
+    files.sort_by_key(|name| is_executable(Path::new(name)));
     let result = (|| -> Result<()> {
         for relative in &files {
             let destination = target(job, relative);
             let original = backup.join(relative);
             let mut existed = false;
-            create_parent(&job.root, Path::new(relative).parent().unwrap())?;
+            create_parent(
+                &job.root,
+                destination.strip_prefix(&job.root)?.parent().unwrap(),
+            )?;
             // Reject an existing symlink or a destination directory; never replace data trees.
             if let Ok(metadata) = fs::symlink_metadata(&destination) {
                 ensure!(
@@ -706,9 +784,9 @@ pub fn run_helper_if_requested() -> bool {
     true
 }
 pub fn previous_failure() -> Option<String> {
-    let path = std::env::current_exe()
+    let executable = std::env::current_exe().ok()?;
+    let path = application_root(&executable)
         .ok()?
-        .parent()?
         .join(".updates/last-result.json");
     if fs::metadata(&path).ok()?.len() > 16384 {
         return None;
@@ -768,10 +846,77 @@ mod tests {
             "pkg/libretranslate-desktop.json",
             "pkg/assets/../../secrets",
             "pkg/assets/C:evil",
+            "pkg/Example.app/Contents/MacOS/data/instances.json",
+            "pkg/Example.app/Contents/MacOS/libretranslate-desktop.json",
+            "pkg/Example.app/Contents/../private",
         ] {
             assert!(relative_entry(Path::new(name), "pkg").is_err(), "{name}");
         }
         assert!(relative_entry(Path::new("pkg/assets/flag.svg"), "pkg").is_ok());
+    }
+    #[test]
+    fn native_macos_bundle_updates_and_rollbacks_preserve_data_and_renamed_apps() {
+        for fail in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut job = job(dir.path(), vec![]);
+            job.executable = "Renamed.app/Contents/MacOS/libretranslate-gui".into();
+            let archive = dir.path().join("release.zip");
+            let mut writer = zip::ZipWriter::new(fs::File::create(&archive).unwrap());
+            for name in [
+                "Release.app/Contents/Info.plist",
+                "Release.app/Contents/Resources/assets/new.css",
+                "Release.app/Contents/MacOS/libretranslate-gui",
+                "docs/usage.md",
+            ] {
+                writer
+                    .start_file(
+                        format!("bundle/{name}"),
+                        zip::write::SimpleFileOptions::default(),
+                    )
+                    .unwrap();
+                writer.write_all(b"new program file").unwrap();
+            }
+            writer.finish().unwrap();
+            job.files = extract(&archive, &job.staging.join("bundle"), "bundle", true).unwrap();
+            let executable = job.root.join(&job.executable);
+            assert_eq!(application_root(&executable).unwrap(), job.root);
+            fs::create_dir_all(executable.parent().unwrap().join("data")).unwrap();
+            fs::write(&executable, "old executable").unwrap();
+            let data = executable.parent().unwrap().join("data/instances.json");
+            let preferences = executable
+                .parent()
+                .unwrap()
+                .join("libretranslate-desktop.json");
+            fs::write(&data, "private instances").unwrap();
+            fs::write(&preferences, "private preferences").unwrap();
+            let plist = job.root.join("Renamed.app/Contents/Info.plist");
+            fs::write(&plist, "old metadata").unwrap();
+            if fail {
+                fs::remove_file(
+                    job.staging
+                        .join("bundle/Release.app/Contents/MacOS/libretranslate-gui"),
+                )
+                .unwrap();
+                assert!(install(&job).is_err());
+                assert_eq!(fs::read_to_string(&executable).unwrap(), "old executable");
+                assert_eq!(fs::read_to_string(plist).unwrap(), "old metadata");
+                assert!(!job.root.join("docs/usage.md").exists());
+            } else {
+                install(&job).unwrap();
+                assert_eq!(fs::read_to_string(&executable).unwrap(), "new program file");
+                assert_eq!(fs::read_to_string(plist).unwrap(), "new program file");
+                assert_eq!(
+                    fs::read_to_string(job.root.join("docs/usage.md")).unwrap(),
+                    "new program file"
+                );
+            }
+            assert_eq!(fs::read_to_string(data).unwrap(), "private instances");
+            assert_eq!(
+                fs::read_to_string(preferences).unwrap(),
+                "private preferences"
+            );
+            assert!(!job.root.join("Release.app").exists());
+        }
     }
     #[test]
     fn replaces_program_files_and_keeps_data_preferences_and_unknown_assets() {

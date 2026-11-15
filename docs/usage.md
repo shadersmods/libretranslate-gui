@@ -6,7 +6,7 @@ LibreTranslate remains the upstream Python application. The manager downloads a 
 
 ## Using the app
 
-1. Open `libretranslate-gui` (or `libretranslate-gui.exe` on Windows).
+1. Open `libretranslate-gui` (or `libretranslate-gui.exe` on Windows). On macOS, open the included `.app` bundle.
 2. Select **Add instance**, choose a name, port, translation languages, worker count, and CPU or CUDA, then **Create instance**. The language picker adds/removes rows, prevents duplicates, and keeps at least two languages.
 3. Select **Install runtime**. Setup installs the runtime and selected language models without starting the server. Follow download and setup output in the live log.
 4. Select **Start server**. Status becomes **Running** when the `/languages` API returns a valid language list.

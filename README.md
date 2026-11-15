@@ -42,7 +42,7 @@ Translation runs on your computer and works offline once setup is complete. You 
 
 ## Getting started
 
-Download the archive for your platform from [Releases](https://github.com/shadersmods/libretranslate-gui/releases), then extract it into a writable folder. Keep the executable and its `assets/` folder together.
+Download the archive for your platform from [Releases](https://github.com/shadersmods/libretranslate-gui/releases), then extract it into a writable folder. On Windows and Linux, keep the executable and its `assets/` folder together. On macOS, open the included `.app` bundle and keep its contents intact.
 
 1. Open **LibreTranslate GUI** and select **Add instance**.
 2. Set a name and port, choose at least two languages, then select **Create instance**.

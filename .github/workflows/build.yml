@@ -27,6 +27,7 @@ jobs:
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
       - run: python tests/model_sync.py
+      - run: python tests/release_packaging.py
       - run: cargo install dioxus-cli --version 0.7.10 --locked
       - run: dx build --platform desktop --release --locked
       - uses: actions/upload-artifact@v4

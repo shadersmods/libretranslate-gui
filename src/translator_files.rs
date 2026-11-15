@@ -824,6 +824,8 @@ mod tests {
                     .await
                     .unwrap();
             });
+            // Drain pending filesystem work before checking delete-on-close files.
+            drop(runtime);
             assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
         }
     }
