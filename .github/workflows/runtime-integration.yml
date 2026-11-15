@@ -21,4 +21,4 @@ jobs:
       - name: Install, translate, stop and restart a private CPU runtime
         run: cargo test --locked manager::tests::real_runtime_translation -- --ignored --nocapture
       - name: Update and storage recovery regressions
-        run: cargo test --locked self_update::
+        run: 'cargo test --locked self_update::'
