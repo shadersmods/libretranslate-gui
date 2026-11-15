@@ -249,10 +249,9 @@ impl AppState {
                                 .iter()
                                 .find(|old| old.instance.id == view.instance.id)
                                 .is_some_and(|old| old.status != view.status || old.pid != view.pid)
+                            && let Some(draft) = self.translations.get_mut(&view.instance.id)
                         {
-                            if let Some(draft) = self.translations.get_mut(&view.instance.id) {
-                                draft.server_restarted();
-                            }
+                            draft.server_restarted();
                         }
                     }
                     self.views = views;
@@ -361,12 +360,13 @@ impl AppState {
         for view in &self.views {
             if !matches!(
                 view.status,
-                crate::manager::Status::Starting | crate::manager::Status::UpdatingModels
-            ) {
-                if let Some(models) = self.downloads.get_mut(&view.instance.id) {
-                    for model in models.values_mut().filter(|model| model.phase.active()) {
-                        model.phase = crate::downloads::DownloadPhase::Interrupted;
-                    }
+                crate::manager::Status::Installing
+                    | crate::manager::Status::Starting
+                    | crate::manager::Status::UpdatingModels
+            ) && let Some(models) = self.downloads.get_mut(&view.instance.id)
+            {
+                for model in models.values_mut().filter(|model| model.phase.active()) {
+                    model.phase = crate::downloads::DownloadPhase::Interrupted;
                 }
             }
         }
@@ -654,6 +654,42 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn installation_keeps_model_transfers_active_until_the_operation_stops() {
+        use crate::{downloads::DownloadPhase, manager::Status};
+        let dir = tempfile::tempdir().unwrap();
+        let settings =
+            Settings::from_file(dir.path().into(), dir.path().join("settings.json")).unwrap();
+        let mut state = AppState::from_settings(Ok(settings));
+        let instance = Instance::default();
+        let id = instance.id;
+        let transfer = ModelDownload::parse(
+            r#"@ltgui-model:{"kind":"translation","source":"en","target":"es","downloaded":50,"total":100,"phase":"downloading"}"#,
+        )
+        .unwrap();
+        let key = transfer.key();
+        for (status, phase) in [
+            (Status::Installing, DownloadPhase::Downloading),
+            (Status::Starting, DownloadPhase::Downloading),
+            (Status::UpdatingModels, DownloadPhase::Downloading),
+            (Status::Stopped, DownloadPhase::Interrupted),
+        ] {
+            state.poll(PollUpdate {
+                events: vec![Event::Snapshot(vec![View {
+                    instance: instance.clone(),
+                    status,
+                    pid: None,
+                }])],
+                logs: vec![],
+                downloads: Some(HashMap::from([(
+                    id,
+                    BTreeMap::from([(key.clone(), transfer.clone())]),
+                )])),
+            });
+            assert_eq!(state.downloads[&id][&key].phase, phase);
+            assert_eq!(state.downloads[&id][&key].downloaded, 50);
+        }
+    }
     #[test]
     fn audit_unrelated_background_error_does_not_discard_an_autosave() {
         let dir = tempfile::tempdir().unwrap();

@@ -10,7 +10,6 @@ ui-test = []
 
 [dependencies]
 anyhow = "1"
-directories = "6"
 dunce = "1"
 dioxus = { version = "0.7.10", features = ["desktop"] }
 dioxus-primitives = { git = "https://github.com/DioxusLabs/dioxus-components", rev = "9a758255ea26e2b20c8cecf4c1c946feb9e71da7", default-features = false }

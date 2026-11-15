@@ -81,10 +81,9 @@ pub fn check(cache: &Path, force: bool) -> Result<ReleaseCatalog> {
             .ok()
             .and_then(|time| time.elapsed().ok())
             .is_some_and(|age| age < Duration::from_secs(3600))
+        && let Some(catalog) = &cached
     {
-        if let Some(catalog) = &cached {
-            return Ok(catalog.clone());
-        }
+        return Ok(catalog.clone());
     }
     let result = (|| -> Result<ReleaseCatalog> {
         let response = reqwest::blocking::Client::builder()

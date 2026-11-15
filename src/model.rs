@@ -375,7 +375,7 @@ mod tests {
     fn config_roundtrip_and_corruption() {
         let root = tempfile::tempdir().unwrap();
         let instance = Instance::default();
-        save(root.path(), &[instance.clone()]).unwrap();
+        save(root.path(), std::slice::from_ref(&instance)).unwrap();
         assert_eq!(load(root.path()).unwrap()[0].id, instance.id);
         fs::write(root.path().join("instances.json"), b"invalid").unwrap();
         assert!(load(root.path()).is_err());

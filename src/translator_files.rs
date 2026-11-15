@@ -515,10 +515,10 @@ pub fn FileTranslator(
         }
     });
     use_effect(move || {
-        if status() != Status::Running {
-            if let Some(draft) = state.peek().file_translations.get(&id) {
-                draft.cancel();
-            }
+        if status() != Status::Running
+            && let Some(draft) = state.peek().file_translations.get(&id)
+        {
+            draft.cancel();
         }
     });
     use_hook(move || {

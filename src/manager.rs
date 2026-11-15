@@ -500,11 +500,11 @@ impl Actor {
             Action::Stop(id) => {
                 self.get(id)?;
                 if let Some(mut child) = self.children.remove(&id) {
-                    if let Err(error) = child.0.kill() {
-                        if child.0.try_wait()?.is_none() {
-                            self.children.insert(id, child);
-                            bail!("Could not stop the process: {error}");
-                        }
+                    if let Err(error) = child.0.kill()
+                        && child.0.try_wait()?.is_none()
+                    {
+                        self.children.insert(id, child);
+                        bail!("Could not stop the process: {error}");
                     }
                     let _ = child.0.wait();
                     drop(child);
@@ -827,10 +827,9 @@ mod tests {
         while Instant::now() < end {
             if let Ok(Event::Snapshot(views)) =
                 manager.events.recv_timeout(Duration::from_millis(100))
+                && predicate(&views)
             {
-                if predicate(&views) {
-                    return views;
-                }
+                return views;
             }
         }
         panic!("Timed out waiting for manager state");

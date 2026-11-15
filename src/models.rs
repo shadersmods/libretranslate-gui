@@ -47,12 +47,11 @@ fn read_index(cache: &Path, refresh: bool) -> Result<(Vec<Package>, bool)> {
             .ok()
             .and_then(|t| t.elapsed().ok())
             .is_some_and(|age| age < Duration::from_secs(3600));
-    if fresh {
-        if let Ok(bytes) = fs::read(&file) {
-            if let Ok(index) = serde_json::from_slice(&bytes) {
-                return Ok((index, false));
-            }
-        }
+    if fresh
+        && let Ok(bytes) = fs::read(&file)
+        && let Ok(index) = serde_json::from_slice(&bytes)
+    {
+        return Ok((index, false));
     }
     let fetched = (|| -> Result<Vec<Package>> {
         let bytes = client()?.get(INDEX).send()?.error_for_status()?.bytes()?;
@@ -205,18 +204,16 @@ pub async fn download_size(url: String) -> Option<u64> {
         let _slot = slot;
         let result = (|| -> Result<Option<u64>> {
             let client = client()?;
-            if let Ok(head) = client.head(&url).send() {
-                if head.status().is_success() {
-                    if let Some(size) = head
-                        .headers()
-                        .get(reqwest::header::CONTENT_LENGTH)
-                        .and_then(|value| value.to_str().ok())
-                        .and_then(|value| value.parse::<u64>().ok())
-                        .filter(|size| *size > 0)
-                    {
-                        return Ok(Some(size));
-                    }
-                }
+            if let Ok(head) = client.head(&url).send()
+                && head.status().is_success()
+                && let Some(size) = head
+                    .headers()
+                    .get(reqwest::header::CONTENT_LENGTH)
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .filter(|size| *size > 0)
+            {
+                return Ok(Some(size));
             }
             let response = client
                 .get(&url)

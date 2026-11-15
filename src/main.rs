@@ -129,10 +129,10 @@ fn main() {
                 close_requested.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             // Normal close waits for acknowledged saves in the UI. Always stop owned processes.
-            if matches!(event, Event::LoopDestroyed) {
-                if let Ok(mut backend) = backend.lock() {
-                    backend.take();
-                }
+            if matches!(event, Event::LoopDestroyed)
+                && let Ok(mut backend) = backend.lock()
+            {
+                backend.take();
             }
         });
     dioxus::LaunchBuilder::desktop()
