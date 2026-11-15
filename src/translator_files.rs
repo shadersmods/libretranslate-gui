@@ -997,42 +997,41 @@ mod tests {
     #[test]
     fn download_timeouts_preserve_timeout_error_in_headers_and_body() {
         let dir = tempfile::tempdir().unwrap();
-        let (instance, worker) = fixture(vec![Box::new(|stream, _| {
-            std::thread::sleep(Duration::from_millis(750));
-            let _ = stream
-                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nConnection: close\r\n\r\nx");
-        })]);
         let client = reqwest::blocking::Client::builder()
             .no_proxy()
-            .timeout(Duration::from_millis(250))
+            .timeout(Duration::from_secs(2))
             .build()
             .unwrap();
-        assert!(matches!(
-            download_file(
-                client
-                    .get(format!("{}/download_file/result.txt", instance.url()))
-                    .send(),
-                dir.path()
-            ),
-            Err(ApiError::Timeout)
-        ));
-        worker.join().unwrap();
-        let (instance, worker) = fixture(vec![Box::new(|stream, _| {
-            let _ = stream
-                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nConnection: close\r\n\r\n");
-            std::thread::sleep(Duration::from_millis(750));
-            let _ = stream.write_all(b"x");
-        })]);
-        assert!(matches!(
-            download_file(
-                client
-                    .get(format!("{}/download_file/result.txt", instance.url()))
-                    .send(),
-                dir.path()
-            ),
-            Err(ApiError::Timeout)
-        ));
-        worker.join().unwrap();
+        for body_timeout in [false, true] {
+            let (release, waiting) = std::sync::mpsc::channel();
+            let (instance, worker) = fixture(vec![Box::new(move |stream, _| {
+                let headers = b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nConnection: close\r\n\r\n";
+                if body_timeout {
+                    stream.write_all(headers).unwrap();
+                }
+                // Keep the missing bytes unavailable until the client finishes.
+                // A fixed sleep can expire before a busy runner begins reading.
+                let _ = waiting.recv_timeout(Duration::from_secs(10));
+                if !body_timeout {
+                    let _ = stream.write_all(headers);
+                }
+                let _ = stream.write_all(b"x");
+            })]);
+            let response = client
+                .get(format!("{}/download_file/result.txt", instance.url()))
+                .send();
+            if body_timeout {
+                assert!(response.is_ok(), "Expected response headers: {response:?}");
+            }
+            let result = download_file(response, dir.path()).map(|file| file.size);
+            let _ = release.send(());
+            worker.join().unwrap();
+            assert_eq!(
+                result,
+                Err(ApiError::Timeout),
+                "body timeout: {body_timeout}"
+            );
+        }
     }
     #[test]
     fn audit_upload_does_not_include_bytes_appended_after_selection() {

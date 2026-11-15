@@ -204,6 +204,25 @@ class SyncTests(unittest.TestCase):
             self.manager.sync_models(['en', 'es'], prune=True)
         self.assertTrue((self.root / 'installed-en_ro').exists())
 
+    def test_updates_through_aliased_package_paths_preserve_current_models_and_one_backup(self):
+        # macOS temporary paths can name the same directory through /var and
+        # /private/var. An existing parent plus '..' exercises the same mismatch
+        # on every platform without needing permission to create symlinks.
+        (self.base / 'alias').mkdir()
+        self.root = self.base / 'alias' / '..' / 'packages'
+        with patch.dict(os.environ, {'ARGOS_PACKAGES_DIR': str(self.root)}):
+            self.ready()
+            stale = self.add('en', 'es')
+            for version in ('2.0', '3.0', '4.0'):
+                self.catalog[0].package_version = version
+                self.manager.sync_models(['en', 'ro'], update=True)
+                self.assertTrue(stale.exists())
+                metadata = json.loads((self.root / 'installed-en_ro/metadata.json').read_text())
+                self.assertEqual(metadata['package_version'], version)
+            backups = list((self.base / 'model-transactions').glob('*/old/metadata.json'))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(json.loads(backups[0].read_text())['package_version'], '3.0')
+
     def test_refuses_paths_outside_owned_model_directory(self):
         outside = self.base / 'other-instance'
         outside.mkdir()

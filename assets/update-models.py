@@ -250,7 +250,7 @@ def _install_archive(candidate, current, installed, root, transactions, archive)
         raise
     print(f'Installed {pair} ({candidate.package_version})', flush=True)
     for old in installed:
-        if old.package_path != destination and old.package_path.exists():
+        if old.package_path.resolve() != destination and old.package_path.exists():
             _owned_directory(old.package_path, root).rename(transaction / ('previous-' + old.package_path.name))
 
 
