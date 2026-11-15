@@ -1,0 +1,10 @@
+[application]
+name = "LibreTranslate Desktop"
+default_platform = "desktop"
+
+[bundle]
+identifier = "org.libretranslate.desktop"
+publisher = "LibreTranslate Desktop"
+icon = ["assets/icon.png", "assets/icon.ico", "assets/icon.icns"]
+short_description = "Manage local LibreTranslate servers"
+category = "Utility"

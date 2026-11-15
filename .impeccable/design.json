@@ -1,0 +1,1077 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-15T12:14:26.730Z",
+  "title": "Design System: LibreTranslate GUI",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Accent",
+        "tonalRamp": [
+          "oklch(15.00% 0.1288 153.82)",
+          "oklch(26.43% 0.1288 153.82)",
+          "oklch(37.86% 0.1288 153.82)",
+          "oklch(49.29% 0.1288 153.82)",
+          "oklch(60.71% 0.1288 153.82)",
+          "oklch(72.14% 0.1288 153.82)",
+          "oklch(83.57% 0.1288 153.82)",
+          "oklch(95.00% 0.1288 153.82)"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Accent Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.1103 153.83)",
+          "oklch(26.43% 0.1103 153.83)",
+          "oklch(37.86% 0.1103 153.83)",
+          "oklch(49.29% 0.1103 153.83)",
+          "oklch(60.71% 0.1103 153.83)",
+          "oklch(72.14% 0.1103 153.83)",
+          "oklch(83.57% 0.1103 153.83)",
+          "oklch(95.00% 0.1103 153.83)"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Accent Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.0000 89.88)",
+          "oklch(26.43% 0.0000 89.88)",
+          "oklch(37.86% 0.0000 89.88)",
+          "oklch(49.29% 0.0000 89.88)",
+          "oklch(60.71% 0.0000 89.88)",
+          "oklch(72.14% 0.0000 89.88)",
+          "oklch(83.57% 0.0000 89.88)",
+          "oklch(95.00% 0.0000 89.88)"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Accent Soft",
+        "tonalRamp": [
+          "oklch(15.00% 0.0307 159.05)",
+          "oklch(26.43% 0.0307 159.05)",
+          "oklch(37.86% 0.0307 159.05)",
+          "oklch(49.29% 0.0307 159.05)",
+          "oklch(60.71% 0.0307 159.05)",
+          "oklch(72.14% 0.0307 159.05)",
+          "oklch(83.57% 0.0307 159.05)",
+          "oklch(95.00% 0.0307 159.05)"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Bg",
+        "tonalRamp": [
+          "oklch(15.00% 0.0034 247.86)",
+          "oklch(26.43% 0.0034 247.86)",
+          "oklch(37.86% 0.0034 247.86)",
+          "oklch(49.29% 0.0034 247.86)",
+          "oklch(60.71% 0.0034 247.86)",
+          "oklch(72.14% 0.0034 247.86)",
+          "oklch(83.57% 0.0034 247.86)",
+          "oklch(95.00% 0.0034 247.86)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel",
+        "tonalRamp": [
+          "oklch(15.00% 0.0000 89.88)",
+          "oklch(26.43% 0.0000 89.88)",
+          "oklch(37.86% 0.0000 89.88)",
+          "oklch(49.29% 0.0000 89.88)",
+          "oklch(60.71% 0.0000 89.88)",
+          "oklch(72.14% 0.0000 89.88)",
+          "oklch(83.57% 0.0000 89.88)",
+          "oklch(95.00% 0.0000 89.88)"
+        ]
+      },
+      "rail": {
+        "role": "neutral",
+        "displayName": "Rail",
+        "tonalRamp": [
+          "oklch(15.00% 0.0085 236.57)",
+          "oklch(26.43% 0.0085 236.57)",
+          "oklch(37.86% 0.0085 236.57)",
+          "oklch(49.29% 0.0085 236.57)",
+          "oklch(60.71% 0.0085 236.57)",
+          "oklch(72.14% 0.0085 236.57)",
+          "oklch(83.57% 0.0085 236.57)",
+          "oklch(95.00% 0.0085 236.57)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.0059 239.82)",
+          "oklch(26.43% 0.0059 239.82)",
+          "oklch(37.86% 0.0059 239.82)",
+          "oklch(49.29% 0.0059 239.82)",
+          "oklch(60.71% 0.0059 239.82)",
+          "oklch(72.14% 0.0059 239.82)",
+          "oklch(83.57% 0.0059 239.82)",
+          "oklch(95.00% 0.0059 239.82)"
+        ]
+      },
+      "surface-hover": {
+        "role": "neutral",
+        "displayName": "Surface Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.0102 228.90)",
+          "oklch(26.43% 0.0102 228.90)",
+          "oklch(37.86% 0.0102 228.90)",
+          "oklch(49.29% 0.0102 228.90)",
+          "oklch(60.71% 0.0102 228.90)",
+          "oklch(72.14% 0.0102 228.90)",
+          "oklch(83.57% 0.0102 228.90)",
+          "oklch(95.00% 0.0102 228.90)"
+        ]
+      },
+      "input": {
+        "role": "neutral",
+        "displayName": "Input",
+        "tonalRamp": [
+          "oklch(15.00% 0.0000 89.88)",
+          "oklch(26.43% 0.0000 89.88)",
+          "oklch(37.86% 0.0000 89.88)",
+          "oklch(49.29% 0.0000 89.88)",
+          "oklch(60.71% 0.0000 89.88)",
+          "oklch(72.14% 0.0000 89.88)",
+          "oklch(83.57% 0.0000 89.88)",
+          "oklch(95.00% 0.0000 89.88)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.0227 238.04)",
+          "oklch(26.43% 0.0227 238.04)",
+          "oklch(37.86% 0.0227 238.04)",
+          "oklch(49.29% 0.0227 238.04)",
+          "oklch(60.71% 0.0227 238.04)",
+          "oklch(72.14% 0.0227 238.04)",
+          "oklch(83.57% 0.0227 238.04)",
+          "oklch(95.00% 0.0227 238.04)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "tonalRamp": [
+          "oklch(15.00% 0.0272 236.50)",
+          "oklch(26.43% 0.0272 236.50)",
+          "oklch(37.86% 0.0272 236.50)",
+          "oklch(49.29% 0.0272 236.50)",
+          "oklch(60.71% 0.0272 236.50)",
+          "oklch(72.14% 0.0272 236.50)",
+          "oklch(83.57% 0.0272 236.50)",
+          "oklch(95.00% 0.0272 236.50)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.0128 236.65)",
+          "oklch(26.43% 0.0128 236.65)",
+          "oklch(37.86% 0.0128 236.65)",
+          "oklch(49.29% 0.0128 236.65)",
+          "oklch(60.71% 0.0128 236.65)",
+          "oklch(72.14% 0.0128 236.65)",
+          "oklch(83.57% 0.0128 236.65)",
+          "oklch(95.00% 0.0128 236.65)"
+        ]
+      },
+      "danger": {
+        "role": "semantic",
+        "displayName": "Danger",
+        "tonalRamp": [
+          "oklch(15.00% 0.1585 19.89)",
+          "oklch(26.43% 0.1585 19.89)",
+          "oklch(37.86% 0.1585 19.89)",
+          "oklch(49.29% 0.1585 19.89)",
+          "oklch(60.71% 0.1585 19.89)",
+          "oklch(72.14% 0.1585 19.89)",
+          "oklch(83.57% 0.1585 19.89)",
+          "oklch(95.00% 0.1585 19.89)"
+        ]
+      },
+      "warning-bg": {
+        "role": "semantic",
+        "displayName": "Warning Bg",
+        "tonalRamp": [
+          "oklch(15.00% 0.0389 82.35)",
+          "oklch(26.43% 0.0389 82.35)",
+          "oklch(37.86% 0.0389 82.35)",
+          "oklch(49.29% 0.0389 82.35)",
+          "oklch(60.71% 0.0389 82.35)",
+          "oklch(72.14% 0.0389 82.35)",
+          "oklch(83.57% 0.0389 82.35)",
+          "oklch(95.00% 0.0389 82.35)"
+        ]
+      },
+      "warning": {
+        "role": "semantic",
+        "displayName": "Warning",
+        "tonalRamp": [
+          "oklch(15.00% 0.0891 70.50)",
+          "oklch(26.43% 0.0891 70.50)",
+          "oklch(37.86% 0.0891 70.50)",
+          "oklch(49.29% 0.0891 70.50)",
+          "oklch(60.71% 0.0891 70.50)",
+          "oklch(72.14% 0.0891 70.50)",
+          "oklch(83.57% 0.0891 70.50)",
+          "oklch(95.00% 0.0891 70.50)"
+        ]
+      },
+      "error-bg": {
+        "role": "semantic",
+        "displayName": "Error Bg",
+        "tonalRamp": [
+          "oklch(15.00% 0.0255 11.60)",
+          "oklch(26.43% 0.0255 11.60)",
+          "oklch(37.86% 0.0255 11.60)",
+          "oklch(49.29% 0.0255 11.60)",
+          "oklch(60.71% 0.0255 11.60)",
+          "oklch(72.14% 0.0255 11.60)",
+          "oklch(83.57% 0.0255 11.60)",
+          "oklch(95.00% 0.0255 11.60)"
+        ]
+      },
+      "dark-accent": {
+        "role": "primary",
+        "displayName": "Dark Accent",
+        "tonalRamp": [
+          "oklch(15.00% 0.1990 151.58)",
+          "oklch(26.43% 0.1990 151.58)",
+          "oklch(37.86% 0.1990 151.58)",
+          "oklch(49.29% 0.1990 151.58)",
+          "oklch(60.71% 0.1990 151.58)",
+          "oklch(72.14% 0.1990 151.58)",
+          "oklch(83.57% 0.1990 151.58)",
+          "oklch(95.00% 0.1990 151.58)"
+        ]
+      },
+      "dark-accent-hover": {
+        "role": "primary",
+        "displayName": "Dark Accent Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.1796 154.61)",
+          "oklch(26.43% 0.1796 154.61)",
+          "oklch(37.86% 0.1796 154.61)",
+          "oklch(49.29% 0.1796 154.61)",
+          "oklch(60.71% 0.1796 154.61)",
+          "oklch(72.14% 0.1796 154.61)",
+          "oklch(83.57% 0.1796 154.61)",
+          "oklch(95.00% 0.1796 154.61)"
+        ]
+      },
+      "dark-accent-ink": {
+        "role": "primary",
+        "displayName": "Dark Accent Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.0399 160.82)",
+          "oklch(26.43% 0.0399 160.82)",
+          "oklch(37.86% 0.0399 160.82)",
+          "oklch(49.29% 0.0399 160.82)",
+          "oklch(60.71% 0.0399 160.82)",
+          "oklch(72.14% 0.0399 160.82)",
+          "oklch(83.57% 0.0399 160.82)",
+          "oklch(95.00% 0.0399 160.82)"
+        ]
+      },
+      "dark-accent-soft": {
+        "role": "primary",
+        "displayName": "Dark Accent Soft",
+        "tonalRamp": [
+          "oklch(15.00% 0.0596 161.35)",
+          "oklch(26.43% 0.0596 161.35)",
+          "oklch(37.86% 0.0596 161.35)",
+          "oklch(49.29% 0.0596 161.35)",
+          "oklch(60.71% 0.0596 161.35)",
+          "oklch(72.14% 0.0596 161.35)",
+          "oklch(83.57% 0.0596 161.35)",
+          "oklch(95.00% 0.0596 161.35)"
+        ]
+      },
+      "dark-bg": {
+        "role": "neutral",
+        "displayName": "Dark Bg",
+        "tonalRamp": [
+          "oklch(15.00% 0.0085 264.37)",
+          "oklch(26.43% 0.0085 264.37)",
+          "oklch(37.86% 0.0085 264.37)",
+          "oklch(49.29% 0.0085 264.37)",
+          "oklch(60.71% 0.0085 264.37)",
+          "oklch(72.14% 0.0085 264.37)",
+          "oklch(83.57% 0.0085 264.37)",
+          "oklch(95.00% 0.0085 264.37)"
+        ]
+      },
+      "dark-panel": {
+        "role": "neutral",
+        "displayName": "Dark Panel",
+        "tonalRamp": [
+          "oklch(15.00% 0.0120 264.34)",
+          "oklch(26.43% 0.0120 264.34)",
+          "oklch(37.86% 0.0120 264.34)",
+          "oklch(49.29% 0.0120 264.34)",
+          "oklch(60.71% 0.0120 264.34)",
+          "oklch(72.14% 0.0120 264.34)",
+          "oklch(83.57% 0.0120 264.34)",
+          "oklch(95.00% 0.0120 264.34)"
+        ]
+      },
+      "dark-rail": {
+        "role": "neutral",
+        "displayName": "Dark Rail",
+        "tonalRamp": [
+          "oklch(15.00% 0.0125 258.37)",
+          "oklch(26.43% 0.0125 258.37)",
+          "oklch(37.86% 0.0125 258.37)",
+          "oklch(49.29% 0.0125 258.37)",
+          "oklch(60.71% 0.0125 258.37)",
+          "oklch(72.14% 0.0125 258.37)",
+          "oklch(83.57% 0.0125 258.37)",
+          "oklch(95.00% 0.0125 258.37)"
+        ]
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Dark Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.0138 261.71)",
+          "oklch(26.43% 0.0138 261.71)",
+          "oklch(37.86% 0.0138 261.71)",
+          "oklch(49.29% 0.0138 261.71)",
+          "oklch(60.71% 0.0138 261.71)",
+          "oklch(72.14% 0.0138 261.71)",
+          "oklch(83.57% 0.0138 261.71)",
+          "oklch(95.00% 0.0138 261.71)"
+        ]
+      },
+      "dark-surface-hover": {
+        "role": "neutral",
+        "displayName": "Dark Surface Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.0167 251.79)",
+          "oklch(26.43% 0.0167 251.79)",
+          "oklch(37.86% 0.0167 251.79)",
+          "oklch(49.29% 0.0167 251.79)",
+          "oklch(60.71% 0.0167 251.79)",
+          "oklch(72.14% 0.0167 251.79)",
+          "oklch(83.57% 0.0167 251.79)",
+          "oklch(95.00% 0.0167 251.79)"
+        ]
+      },
+      "dark-input": {
+        "role": "neutral",
+        "displayName": "Dark Input",
+        "tonalRamp": [
+          "oklch(15.00% 0.0143 256.78)",
+          "oklch(26.43% 0.0143 256.78)",
+          "oklch(37.86% 0.0143 256.78)",
+          "oklch(49.29% 0.0143 256.78)",
+          "oklch(60.71% 0.0143 256.78)",
+          "oklch(72.14% 0.0143 256.78)",
+          "oklch(83.57% 0.0143 256.78)",
+          "oklch(95.00% 0.0143 256.78)"
+        ]
+      },
+      "dark-text": {
+        "role": "neutral",
+        "displayName": "Dark Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.0069 247.90)",
+          "oklch(26.43% 0.0069 247.90)",
+          "oklch(37.86% 0.0069 247.90)",
+          "oklch(49.29% 0.0069 247.90)",
+          "oklch(60.71% 0.0069 247.90)",
+          "oklch(72.14% 0.0069 247.90)",
+          "oklch(83.57% 0.0069 247.90)",
+          "oklch(95.00% 0.0069 247.90)"
+        ]
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Dark Muted",
+        "tonalRamp": [
+          "oklch(15.00% 0.0212 250.44)",
+          "oklch(26.43% 0.0212 250.44)",
+          "oklch(37.86% 0.0212 250.44)",
+          "oklch(49.29% 0.0212 250.44)",
+          "oklch(60.71% 0.0212 250.44)",
+          "oklch(72.14% 0.0212 250.44)",
+          "oklch(83.57% 0.0212 250.44)",
+          "oklch(95.00% 0.0212 250.44)"
+        ]
+      },
+      "dark-border": {
+        "role": "neutral",
+        "displayName": "Dark Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.0175 258.37)",
+          "oklch(26.43% 0.0175 258.37)",
+          "oklch(37.86% 0.0175 258.37)",
+          "oklch(49.29% 0.0175 258.37)",
+          "oklch(60.71% 0.0175 258.37)",
+          "oklch(72.14% 0.0175 258.37)",
+          "oklch(83.57% 0.0175 258.37)",
+          "oklch(95.00% 0.0175 258.37)"
+        ]
+      },
+      "dark-danger": {
+        "role": "semantic",
+        "displayName": "Dark Danger",
+        "tonalRamp": [
+          "oklch(15.00% 0.1291 15.87)",
+          "oklch(26.43% 0.1291 15.87)",
+          "oklch(37.86% 0.1291 15.87)",
+          "oklch(49.29% 0.1291 15.87)",
+          "oklch(60.71% 0.1291 15.87)",
+          "oklch(72.14% 0.1291 15.87)",
+          "oklch(83.57% 0.1291 15.87)",
+          "oklch(95.00% 0.1291 15.87)"
+        ]
+      },
+      "dark-warning-bg": {
+        "role": "semantic",
+        "displayName": "Dark Warning Bg",
+        "tonalRamp": [
+          "oklch(15.00% 0.0333 79.48)",
+          "oklch(26.43% 0.0333 79.48)",
+          "oklch(37.86% 0.0333 79.48)",
+          "oklch(49.29% 0.0333 79.48)",
+          "oklch(60.71% 0.0333 79.48)",
+          "oklch(72.14% 0.0333 79.48)",
+          "oklch(83.57% 0.0333 79.48)",
+          "oklch(95.00% 0.0333 79.48)"
+        ]
+      },
+      "dark-warning": {
+        "role": "semantic",
+        "displayName": "Dark Warning",
+        "tonalRamp": [
+          "oklch(15.00% 0.0937 84.67)",
+          "oklch(26.43% 0.0937 84.67)",
+          "oklch(37.86% 0.0937 84.67)",
+          "oklch(49.29% 0.0937 84.67)",
+          "oklch(60.71% 0.0937 84.67)",
+          "oklch(72.14% 0.0937 84.67)",
+          "oklch(83.57% 0.0937 84.67)",
+          "oklch(95.00% 0.0937 84.67)"
+        ]
+      },
+      "dark-error-bg": {
+        "role": "semantic",
+        "displayName": "Dark Error Bg",
+        "tonalRamp": [
+          "oklch(15.00% 0.0433 3.67)",
+          "oklch(26.43% 0.0433 3.67)",
+          "oklch(37.86% 0.0433 3.67)",
+          "oklch(49.29% 0.0433 3.67)",
+          "oklch(60.71% 0.0433 3.67)",
+          "oklch(72.14% 0.0433 3.67)",
+          "oklch(83.57% 0.0433 3.67)",
+          "oklch(95.00% 0.0433 3.67)"
+        ]
+      },
+      "danger-action": {
+        "role": "semantic",
+        "displayName": "Danger Action",
+        "tonalRamp": [
+          "oklch(15.00% 0.1580 17.19)",
+          "oklch(26.43% 0.1580 17.19)",
+          "oklch(37.86% 0.1580 17.19)",
+          "oklch(49.29% 0.1580 17.19)",
+          "oklch(60.71% 0.1580 17.19)",
+          "oklch(72.14% 0.1580 17.19)",
+          "oklch(83.57% 0.1580 17.19)",
+          "oklch(95.00% 0.1580 17.19)"
+        ]
+      },
+      "log-error": {
+        "role": "semantic",
+        "displayName": "Log Error",
+        "tonalRamp": [
+          "oklch(15.00% 0.1690 19.68)",
+          "oklch(26.43% 0.1690 19.68)",
+          "oklch(37.86% 0.1690 19.68)",
+          "oklch(49.29% 0.1690 19.68)",
+          "oklch(60.71% 0.1690 19.68)",
+          "oklch(72.14% 0.1690 19.68)",
+          "oklch(83.57% 0.1690 19.68)",
+          "oklch(95.00% 0.1690 19.68)"
+        ]
+      },
+      "log-warning": {
+        "role": "semantic",
+        "displayName": "Log Warning",
+        "tonalRamp": [
+          "oklch(15.00% 0.1048 68.30)",
+          "oklch(26.43% 0.1048 68.30)",
+          "oklch(37.86% 0.1048 68.30)",
+          "oklch(49.29% 0.1048 68.30)",
+          "oklch(60.71% 0.1048 68.30)",
+          "oklch(72.14% 0.1048 68.30)",
+          "oklch(83.57% 0.1048 68.30)",
+          "oklch(95.00% 0.1048 68.30)"
+        ]
+      },
+      "log-success": {
+        "role": "semantic",
+        "displayName": "Log Success",
+        "tonalRamp": [
+          "oklch(15.00% 0.1288 153.82)",
+          "oklch(26.43% 0.1288 153.82)",
+          "oklch(37.86% 0.1288 153.82)",
+          "oklch(49.29% 0.1288 153.82)",
+          "oklch(60.71% 0.1288 153.82)",
+          "oklch(72.14% 0.1288 153.82)",
+          "oklch(83.57% 0.1288 153.82)",
+          "oklch(95.00% 0.1288 153.82)"
+        ]
+      },
+      "log-progress": {
+        "role": "semantic",
+        "displayName": "Log Progress",
+        "tonalRamp": [
+          "oklch(15.00% 0.1327 252.78)",
+          "oklch(26.43% 0.1327 252.78)",
+          "oklch(37.86% 0.1327 252.78)",
+          "oklch(49.29% 0.1327 252.78)",
+          "oklch(60.71% 0.1327 252.78)",
+          "oklch(72.14% 0.1327 252.78)",
+          "oklch(83.57% 0.1327 252.78)",
+          "oklch(95.00% 0.1327 252.78)"
+        ]
+      },
+      "log-build": {
+        "role": "semantic",
+        "displayName": "Log Build",
+        "tonalRamp": [
+          "oklch(15.00% 0.1646 301.99)",
+          "oklch(26.43% 0.1646 301.99)",
+          "oklch(37.86% 0.1646 301.99)",
+          "oklch(49.29% 0.1646 301.99)",
+          "oklch(60.71% 0.1646 301.99)",
+          "oklch(72.14% 0.1646 301.99)",
+          "oklch(83.57% 0.1646 301.99)",
+          "oklch(95.00% 0.1646 301.99)"
+        ]
+      },
+      "log-detail": {
+        "role": "semantic",
+        "displayName": "Log Detail",
+        "tonalRamp": [
+          "oklch(15.00% 0.0269 236.44)",
+          "oklch(26.43% 0.0269 236.44)",
+          "oklch(37.86% 0.0269 236.44)",
+          "oklch(49.29% 0.0269 236.44)",
+          "oklch(60.71% 0.0269 236.44)",
+          "oklch(72.14% 0.0269 236.44)",
+          "oklch(83.57% 0.0269 236.44)",
+          "oklch(95.00% 0.0269 236.44)"
+        ]
+      },
+      "dark-log-error": {
+        "role": "semantic",
+        "displayName": "Dark Log Error",
+        "tonalRamp": [
+          "oklch(15.00% 0.1302 14.02)",
+          "oklch(26.43% 0.1302 14.02)",
+          "oklch(37.86% 0.1302 14.02)",
+          "oklch(49.29% 0.1302 14.02)",
+          "oklch(60.71% 0.1302 14.02)",
+          "oklch(72.14% 0.1302 14.02)",
+          "oklch(83.57% 0.1302 14.02)",
+          "oklch(95.00% 0.1302 14.02)"
+        ]
+      },
+      "dark-log-warning": {
+        "role": "semantic",
+        "displayName": "Dark Log Warning",
+        "tonalRamp": [
+          "oklch(15.00% 0.1074 82.46)",
+          "oklch(26.43% 0.1074 82.46)",
+          "oklch(37.86% 0.1074 82.46)",
+          "oklch(49.29% 0.1074 82.46)",
+          "oklch(60.71% 0.1074 82.46)",
+          "oklch(72.14% 0.1074 82.46)",
+          "oklch(83.57% 0.1074 82.46)",
+          "oklch(95.00% 0.1074 82.46)"
+        ]
+      },
+      "dark-log-success": {
+        "role": "semantic",
+        "displayName": "Dark Log Success",
+        "tonalRamp": [
+          "oklch(15.00% 0.1274 158.46)",
+          "oklch(26.43% 0.1274 158.46)",
+          "oklch(37.86% 0.1274 158.46)",
+          "oklch(49.29% 0.1274 158.46)",
+          "oklch(60.71% 0.1274 158.46)",
+          "oklch(72.14% 0.1274 158.46)",
+          "oklch(83.57% 0.1274 158.46)",
+          "oklch(95.00% 0.1274 158.46)"
+        ]
+      },
+      "dark-log-progress": {
+        "role": "semantic",
+        "displayName": "Dark Log Progress",
+        "tonalRamp": [
+          "oklch(15.00% 0.1073 253.68)",
+          "oklch(26.43% 0.1073 253.68)",
+          "oklch(37.86% 0.1073 253.68)",
+          "oklch(49.29% 0.1073 253.68)",
+          "oklch(60.71% 0.1073 253.68)",
+          "oklch(72.14% 0.1073 253.68)",
+          "oklch(83.57% 0.1073 253.68)",
+          "oklch(95.00% 0.1073 253.68)"
+        ]
+      },
+      "dark-log-build": {
+        "role": "semantic",
+        "displayName": "Dark Log Build",
+        "tonalRamp": [
+          "oklch(15.00% 0.1195 297.29)",
+          "oklch(26.43% 0.1195 297.29)",
+          "oklch(37.86% 0.1195 297.29)",
+          "oklch(49.29% 0.1195 297.29)",
+          "oklch(60.71% 0.1195 297.29)",
+          "oklch(72.14% 0.1195 297.29)",
+          "oklch(83.57% 0.1195 297.29)",
+          "oklch(95.00% 0.1195 297.29)"
+        ]
+      },
+      "dark-log-detail": {
+        "role": "semantic",
+        "displayName": "Dark Log Detail",
+        "tonalRamp": [
+          "oklch(15.00% 0.0224 252.55)",
+          "oklch(26.43% 0.0224 252.55)",
+          "oklch(37.86% 0.0224 252.55)",
+          "oklch(49.29% 0.0224 252.55)",
+          "oklch(60.71% 0.0224 252.55)",
+          "oklch(72.14% 0.0224 252.55)",
+          "oklch(83.57% 0.0224 252.55)",
+          "oklch(95.00% 0.0224 252.55)"
+        ]
+      },
+      "danger-action-hover": {
+        "role": "semantic",
+        "displayName": "Danger Action Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.1501 17.95)",
+          "oklch(26.43% 0.1501 17.95)",
+          "oklch(37.86% 0.1501 17.95)",
+          "oklch(49.29% 0.1501 17.95)",
+          "oklch(60.71% 0.1501 17.95)",
+          "oklch(72.14% 0.1501 17.95)",
+          "oklch(83.57% 0.1501 17.95)",
+          "oklch(95.00% 0.1501 17.95)"
+        ]
+      },
+      "tooltip-bg": {
+        "role": "neutral",
+        "displayName": "Tooltip Bg",
+        "tonalRamp": [
+          "oklch(15.00% 0.0000 89.88)",
+          "oklch(26.43% 0.0000 89.88)",
+          "oklch(37.86% 0.0000 89.88)",
+          "oklch(49.29% 0.0000 89.88)",
+          "oklch(60.71% 0.0000 89.88)",
+          "oklch(72.14% 0.0000 89.88)",
+          "oklch(83.57% 0.0000 89.88)",
+          "oklch(95.00% 0.0000 89.88)"
+        ]
+      },
+      "tooltip-border": {
+        "role": "neutral",
+        "displayName": "Tooltip Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.0175 242.48)",
+          "oklch(26.43% 0.0175 242.48)",
+          "oklch(37.86% 0.0175 242.48)",
+          "oklch(49.29% 0.0175 242.48)",
+          "oklch(60.71% 0.0175 242.48)",
+          "oklch(72.14% 0.0175 242.48)",
+          "oklch(83.57% 0.0175 242.48)",
+          "oklch(95.00% 0.0175 242.48)"
+        ]
+      },
+      "dark-tooltip-bg": {
+        "role": "neutral",
+        "displayName": "Dark Tooltip Bg",
+        "tonalRamp": [
+          "oklch(15.00% 0.0167 251.79)",
+          "oklch(26.43% 0.0167 251.79)",
+          "oklch(37.86% 0.0167 251.79)",
+          "oklch(49.29% 0.0167 251.79)",
+          "oklch(60.71% 0.0167 251.79)",
+          "oklch(72.14% 0.0167 251.79)",
+          "oklch(83.57% 0.0167 251.79)",
+          "oklch(95.00% 0.0167 251.79)"
+        ]
+      },
+      "dark-tooltip-border": {
+        "role": "neutral",
+        "displayName": "Dark Tooltip Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.0225 248.30)",
+          "oklch(26.43% 0.0225 248.30)",
+          "oklch(37.86% 0.0225 248.30)",
+          "oklch(49.29% 0.0225 248.30)",
+          "oklch(60.71% 0.0225 248.30)",
+          "oklch(72.14% 0.0225 248.30)",
+          "oklch(83.57% 0.0225 248.30)",
+          "oklch(95.00% 0.0225 248.30)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "page-title": {
+        "displayName": "Page Title",
+        "purpose": "Library, creation, and Options headings."
+      },
+      "instance-title": {
+        "displayName": "Instance Title",
+        "purpose": "Compact lifecycle header."
+      },
+      "body": {
+        "displayName": "Native Interface Body",
+        "purpose": "Supporting prose and controls."
+      },
+      "mono": {
+        "displayName": "Technical Detail",
+        "purpose": "Endpoints, paths, and process logs."
+      },
+      "statistic": {
+        "displayName": "Statistic Value",
+        "purpose": "Actual enabled-instance totals, errors, weighted duration, and in-flight values."
+      },
+      "translation": {
+        "displayName": "Translation Text",
+        "purpose": "Input and result text panes with automatic content direction."
+      }
+    },
+    "shadows": [
+      {
+        "name": "popup",
+        "value": "0 10px 30px #0003",
+        "purpose": "Floating option lists."
+      },
+      {
+        "name": "toast",
+        "value": "0 10px 40px #0004",
+        "purpose": "Notifications above the workspace."
+      },
+      {
+        "name": "dialog",
+        "value": "0 18px 70px #0005",
+        "purpose": "Destructive confirmation and the optional application-update dialog."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-state",
+        "value": "background-color 120ms ease-out, color 120ms ease-out",
+        "purpose": "Button hover changes."
+      },
+      {
+        "name": "rail-expansion",
+        "value": "grid-template-columns 180ms ease-out",
+        "purpose": "Expand and collapse the single rail."
+      },
+      {
+        "name": "progress-spin",
+        "value": "spin 900ms linear infinite",
+        "purpose": "Actual installing, starting, and translation work."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none !important; transition: none !important",
+        "purpose": "Honor prefers-reduced-motion: reduce."
+      },
+      {
+        "name": "transfer-value",
+        "value": "width .15s linear",
+        "purpose": "Real downloaded-byte progress when a total is known."
+      },
+      {
+        "name": "transfer-wait",
+        "value": "transfer-wait 1.2s ease-in-out infinite alternate",
+        "purpose": "Indeterminate model transfer phases; disabled for reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1050px"
+      },
+      {
+        "name": "wrapped-detail",
+        "value": "1000px"
+      },
+      {
+        "name": "single-column",
+        "value": "720px"
+      },
+      {
+        "name": "instance-library-two-columns-container",
+        "value": "920px"
+      },
+      {
+        "name": "instance-library-one-column-container",
+        "value": "600px"
+      },
+      {
+        "name": "instance-library-viewport-fallback",
+        "value": "1100px"
+      },
+      {
+        "name": "statistics-two-columns",
+        "value": "900px"
+      },
+      {
+        "name": "translator-compact-height",
+        "value": "700px"
+      }
+    ],
+    "tooltipBehavior": {
+      "singleActive": true,
+      "actionHintPlacement": "Top with 8px gap; bottom fallback; 8px viewport clamp.",
+      "instancePreviewPlacement": "Right with 8px gap; left fallback; 8px viewport clamp.",
+      "tracking": "requestAnimationFrame follows layout, scrolling, and resizing.",
+      "dismissal": [
+        "click",
+        "Escape",
+        "blur",
+        "document hidden",
+        "loss of hover or keyboard focus",
+        "anchor outside viewport"
+      ],
+      "keyboard": "Direct button focus opens hints; wrappers do not add a tab stop.",
+      "previewLanguages": "At most six language chips, followed by the remaining count.",
+      "surface": "Shared tooltip-bg and tooltip-border from the active theme; theme text color; no shadow for hints or rich previews."
+    },
+    "railInstanceLayout": {
+      "collapsed": "46px square target; 38px avatar; 4px insets.",
+      "expanded": "Automatic height, minimum 52px.",
+      "scrolling": "List spans the rail padding; overflow-y auto; overflow-x hidden; scrollbar-gutter stable both-edges."
+    },
+    "taskBehavior": {
+      "primitive": "Official Dioxus Popover; transfer rows use official Progress.",
+      "scope": "Session activity across instances, grouped into Active and History.",
+      "history": "Dismiss and Clear affect terminal records only; preserve byte counts.",
+      "setup": "Show actual installing/starting/updating operation status when no active byte transfer exists.",
+      "ordering": "Downloading/validating before queued; terminal History follows, with failed/stopped before ready.",
+      "completed": "Show downloaded size only; omit redundant total, 100% label, and progress bar."
+    },
+    "statisticsBehavior": {
+      "visibility": "Metrics-enabled instances only.",
+      "refresh": "Actual local prefixed metrics endpoint every five seconds while mounted and running, plus manual Refresh; configured bearer token.",
+      "aggregation": "Requests, errors, request-weighted duration, in-flight total, and endpoint rows; no client or API-key labels.",
+      "missing": "Localized stopped/loading/connection/authorization/invalid states, not invented zero values."
+    },
+    "translatorBehavior": {
+      "entry": "First and default instance tab; header Open translator returns to it.",
+      "modes": "Text and Files use a compact icon-and-label mode control; shared source/target selectors.",
+      "availability": "Translation controls are disabled while stopped, uninstalled, loading languages, or unable to load the server language list; localized start/install/loading/unavailable feedback.",
+      "languages": "Actual running server language list, auto-detect source, supported targets.",
+      "state": "Per-instance in-memory text drafts and results; edits clear old results; completed draft revisions reuse results; revision guards ignore stale responses.",
+      "request": "Local URL prefix and configured API key; text format.",
+      "automatic": "Translate after a 600ms typing pause; wait for input-method composition to finish; one text request at a time.",
+      "actions": "Swap, Clear, Copy; character count/limit and automatic pending/error feedback.",
+      "shortViewport": "At viewport heights up to 700px: panel min-height 0, panes min-height 180px, text areas min-height 140px; preserve bottom feedback."
+    },
+    "localeBehavior": {
+      "codes": [
+        "en",
+        "ro",
+        "es",
+        "fr",
+        "de",
+        "pt-BR",
+        "ru",
+        "zh-Hans",
+        "ja",
+        "ko",
+        "ar",
+        "hi",
+        "hu",
+        "pt-PT",
+        "it",
+        "pl",
+        "nl",
+        "cs",
+        "uk",
+        "el"
+      ],
+      "picker": "Searchable twenty-choice picker with autonyms and flags; canonical regional persistence; legacy bare pt remains pt-BR, with pt-PT separate.",
+      "arabic": "Mirrored content/rail; left-to-right title bar/native controls and technical values; translator text direction auto.",
+      "modelLanguages": "Add all appends missing supported model languages without duplicates, through existing autosave."
+    },
+    "translatorFilesBehavior": {
+      "availability": "Running server, instance file-translation setting, and server-reported file-translation support are required.",
+      "formats": "Display actual server-supported extensions; native file picker filters use those extensions.",
+      "selection": "Flat Workspace selection area; dashed Border stroke; 10px corners; muted file icon; chosen filename and secondary Choose file action.",
+      "limits": "Require a nonempty supported file up to 50MiB; show localized format/size errors.",
+      "actions": "Explicit green Translate file action with pending feedback; native Save translated file dialog appears after a successful result; actions wrap with a 10px gap.",
+      "shortViewport": "At viewport heights up to 700px: reduce selection padding and icon size to preserve file actions."
+    },
+    "appUpdateBehavior": {
+      "entry": "Check stable GUI releases at startup; About provides Check for updates with inline status and a changelog action for available releases.",
+      "versions": "Show current and available GUI versions separately from managed LibreTranslate runtime versions.",
+      "dialog": "Optional panel with 560px width cap, viewport-bounded height, 26px padding, 15px corners, and the shared dialog shadow; green download icon and keyboard-focusable scrolling changelog.",
+      "direction": "Mirror the current-to-new version chevron in Arabic; upstream changelog blocks and lines use automatic content direction so English notes preserve left-to-right punctuation.",
+      "actions": "Later and the green update action align at the lower end with a 10px gap; unsupported packages disable the update action with an explanation.",
+      "progress": "Shared thin Progress track with actual download bytes; verifying/restarting phases are indeterminate; working disables actions and dismissal.",
+      "completion": "Verified package is staged and applied through the replacement helper, then the app reopens automatically; preserve data/preferences and roll back failed replacement.",
+      "errors": "Use established localized feedback surfaces."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Lifecycle and form action.",
+      "html": "<button class=\"ds-button-primary\">Start server</button>",
+      "css": ".ds-button-primary{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;background:var(--accent,#087d44);color:var(--accent-ink,#fff);padding:10px 15px;min-height:40px;border:0;border-radius:9px;font-size:13px;font-weight:600;line-height:1.35;cursor:pointer;transition:background-color 120ms ease-out,color 120ms ease-out;}.ds-button-primary:hover:not(:disabled){background:var(--accent-hover,#066536);}.ds-button-primary:focus-visible{outline:3px solid var(--accent,#087d44);outline-offset:3px;}.ds-button-primary:disabled{opacity:.45;cursor:default;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting management action.",
+      "html": "<button class=\"ds-button-secondary\">Manage</button>",
+      "css": ".ds-button-secondary{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;background:var(--surface,#e9edf0);color:var(--text,#17232b);padding:10px 15px;min-height:40px;border:1px solid var(--border,#cdd6dc);border-radius:9px;font-size:13px;font-weight:600;line-height:1.35;cursor:pointer;transition:background-color 120ms ease-out,color 120ms ease-out;}.ds-button-secondary:hover:not(:disabled){background:var(--surface-hover,#dce4e8);}.ds-button-secondary:focus-visible{outline:3px solid var(--accent,#087d44);outline-offset:3px;}.ds-button-secondary:disabled{opacity:.45;cursor:default;}"
+    },
+    {
+      "name": "Stop / Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Red Stop server in headers/cards and destructive confirmation.",
+      "html": "<button class=\"ds-button-danger\">Stop server</button>",
+      "css": ".ds-button-danger{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;background: #b83d4c;color:#fff;padding:10px 15px;min-height:40px;border:0;border-radius:9px;font-size:13px;font-weight:600;line-height:1.35;cursor:pointer;transition:background-color 120ms ease-out,color 120ms ease-out;}.ds-button-danger:hover:not(:disabled){background:#a3303e;}.ds-button-danger:focus-visible{outline:3px solid var(--accent,#087d44);outline-offset:3px;}.ds-button-danger:disabled{opacity:.45;cursor:default;}"
+    },
+    {
+      "name": "Text Button",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Low emphasis contextual action.",
+      "html": "<button class=\"ds-text-button\">Copy path</button>",
+      "css": ".ds-text-button{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;padding:6px 8px;border:0;border-radius:9px;color:var(--accent,#087d44);background:transparent;font-size:12px;cursor:pointer;transition:background-color 120ms ease-out,color 120ms ease-out;}.ds-text-button:hover{background:var(--accent-soft,#d3eadc);}.ds-text-button:focus-visible{outline:3px solid var(--accent,#087d44);outline-offset:3px;}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Configuration field with a persistent label.",
+      "html": "<label class=\"ds-field\">Instance name<input class=\"ds-input\" value=\"Local server\"></label>",
+      "css": ".ds-field{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;display:block;font-size:12px;font-weight:600;color:var(--text,#17232b);}.ds-input{display:block;margin-top:8px;width:100%;min-height:42px;padding:10px 12px;border:1px solid var(--border,#cdd6dc);border-radius:8px;background:var(--input,#fff);color:var(--text,#17232b);font:14px \"Segoe UI\",sans-serif;caret-color:var(--accent,#087d44);}.ds-input:focus-visible{outline:3px solid var(--accent,#087d44);outline-offset:3px;}"
+    },
+    {
+      "name": "Rail Navigation",
+      "kind": "nav",
+      "refersTo": "rail-active",
+      "description": "Single compact rail with selection.",
+      "html": "<nav class=\"ds-rail\"><button class=\"ds-rail-button\" aria-label=\"Instances\" aria-current=\"page\"><svg width=\"22\" height=\"22\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 3h16v7H4ZM4 14h16v7H4ZM7 6.5h.01M7 17.5h.01\"/></svg></button></nav>",
+      "css": ".ds-rail{padding:10px 8px;background:var(--rail,#dde3e7);width:max-content;}.ds-rail-button{width:44px;height:44px;border:0;border-radius:12px;display:grid;place-items:center;color:var(--accent,#087d44);background:var(--accent-soft,#d3eadc);cursor:pointer;transition:background-color 120ms ease-out,color 120ms ease-out;}.ds-rail-button:hover{background:var(--surface-hover,#dce4e8);}.ds-rail-button:focus-visible{outline:3px solid var(--accent,#087d44);outline-offset:3px;}"
+    },
+    {
+      "name": "Language Chip",
+      "kind": "chip",
+      "refersTo": "language-chip",
+      "description": "Compact server language metadata.",
+      "html": "<span class=\"ds-language-chip\">en</span>",
+      "css": ".ds-language-chip{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;display:inline-flex;align-items:center;gap:5px;padding:4px 6px;border-radius:5px;background:var(--surface,#e9edf0);color:var(--muted,#52636e);font-size:11px;}"
+    },
+    {
+      "name": "Instance Card",
+      "kind": "card",
+      "refersTo": "instance-card",
+      "description": "Flex-column server card with bottom-aligned status/device and following controls.",
+      "html": "<article class=\"ds-card\"><button class=\"ds-card-open\" aria-label=\"Local server\">Local server</button><code class=\"ds-card-endpoint\">127.0.0.1:5000</code><div class=\"ds-card-meta\"><span class=\"ds-card-status\"><span class=\"ds-card-dot\"></span>Running</span><span>CPU</span></div></article>",
+      "css": ".ds-card{min-width:0;display:flex;flex-direction:column;font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;padding:20px;border-radius:15px;background:var(--panel,#fff);color:var(--text,#17232b);border:1px solid var(--border,#cdd6dc);}.ds-card-open{min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;padding:0;background:transparent;border:0;border-radius:9px;color:inherit;font-size:16px;font-weight:650;line-height:1.4;letter-spacing:-.02em;cursor:pointer;}.ds-card-open:hover{color:var(--accent,#087d44);}.ds-card-open:focus-visible{outline:3px solid var(--accent,#087d44);outline-offset:3px;}.ds-card-endpoint{display:block;margin:12px 0;color:var(--muted,#52636e);font:11px Consolas,monospace;}.ds-card-status{display:inline-flex;align-items:center;gap:7px;color:var(--accent,#087d44);font-size:12px;}.ds-card-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}.ds-card-meta{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:auto;font-size:11px;color:var(--muted,#52636e);}"
+    },
+    {
+      "name": "Connected Tabs",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Translator first and default; every tab has a related local SVG icon; Statistics appears only when metrics are enabled.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab\" role=\"tab\" aria-selected=\"true\"><svg class=\"ds-tab-icon\" width=\"15\" height=\"15\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 5h12M9 3v2M5 5c1 6 5 9 9 11M13 5c-1 6-5 9-9 11M14 21l4-10 4 10M15.5 17h5\"/></svg>Translator</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\"><svg class=\"ds-tab-icon\" width=\"15\" height=\"15\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 7h16M4 17h16M8 4v6M16 14v6\"/></svg>Configuration</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\"><svg class=\"ds-tab-icon\" width=\"15\" height=\"15\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5\"/></svg>Models</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\"><svg class=\"ds-tab-icon\" width=\"15\" height=\"15\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 3v17h17M8 15v-4m5 4V6m5 9V9\"/></svg>Statistics</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\"><svg class=\"ds-tab-icon\" width=\"15\" height=\"15\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 6h4m4 0h10M3 12h10m4 0h4M3 18h4m4 0h10\"/><circle cx=\"9\" cy=\"6\" r=\"2\"/><circle cx=\"15\" cy=\"12\" r=\"2\"/><circle cx=\"9\" cy=\"18\" r=\"2\"/></svg>Advanced</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\"><svg class=\"ds-tab-icon\" width=\"15\" height=\"15\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"m7 9 3 3-3 3m6 0h4\"/></svg>Logs</button></div>",
+      "css": ".ds-tabs{display:flex;overflow-x:auto;flex-wrap:nowrap;gap:4px;padding:6px 12px 0;border-bottom:1px solid var(--border,#cdd6dc);background:var(--panel,#fff);}.ds-tab{flex-shrink:0;white-space:nowrap;font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;padding:11px 16px;border:0;border-bottom:2px solid transparent;border-radius:8px 8px 0 0;background:transparent;color:var(--muted,#52636e);font-size:12px;font-weight:600;cursor:pointer;}.ds-tab[aria-selected=\"true\"]{background:var(--accent-soft,#d3eadc);color:var(--accent,#087d44);border-bottom-color:var(--accent,#087d44);}.ds-tab:hover{background:var(--surface-hover,#dce4e8);}.ds-tab:focus-visible{outline:3px solid var(--accent,#087d44);outline-offset:3px;}.ds-tab{display:inline-flex;align-items:center;justify-content:center;gap:7px;}.ds-tab-icon{width:15px;height:15px;flex:0 0 18px;}"
+    },
+    {
+      "name": "Model Versions",
+      "kind": "custom",
+      "refersTo": "model-table",
+      "description": "Versions and sizes with aligned pair chevrons and labeled narrow rows.",
+      "html": "<div class=\"ds-model-scroll\"><table class=\"ds-model-table\"><thead><tr><th scope=\"col\">Language pair</th><th scope=\"col\">Installed</th><th scope=\"col\">Available</th><th scope=\"col\">On disk</th><th scope=\"col\">Download</th></tr></thead><tbody><tr><td class=\"ds-model-pair\"><div class=\"ds-model-pair-content\"><span class=\"ds-model-language\">English</span><svg class=\"ds-model-chevron\" width=\"14\" height=\"14\" aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m9 5 7 7-7 7\"/></svg><span class=\"ds-model-language\">Romanian</span></div></td><td><span class=\"ds-cell-label\">Installed</span>Not installed</td><td><span class=\"ds-cell-label\">Available</span>—</td><td><span class=\"ds-cell-label\">On disk</span>—</td><td><span class=\"ds-cell-label\">Download</span>Unknown size</td></tr></tbody></table></div>",
+      "css": ".ds-model-scroll{width:100%;overflow:auto;margin-top:18px;}.ds-model-table{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;width:100%;border-collapse:collapse;font-size:12px;text-align:left;color:var(--text,#17232b);}.ds-model-table th{color:var(--muted,#52636e);font-size:11px;font-weight:500;padding:10px 12px;border-bottom:1px solid var(--border,#cdd6dc);white-space:nowrap;}.ds-model-table td{padding:16px 12px;vertical-align:middle;}.ds-model-pair{min-width:240px;}.ds-model-pair-content{display:grid;grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr);gap:10px;align-items:center;}.ds-model-language{display:inline-flex;gap:6px;align-items:center;}.ds-model-chevron{width:14px;height:14px;color:var(--muted,#52636e);}.ds-cell-label{display:none;}@media(max-width:1000px){.ds-model-table,.ds-model-table tbody{display:block;}.ds-model-table thead{display:none;}.ds-model-table tr{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;padding:16px 0;border-bottom:1px solid var(--border,#cdd6dc);}.ds-model-table td{display:block;padding:0;border:0;}.ds-model-table .ds-model-pair{grid-column:1/-1;}.ds-cell-label{display:block;color:var(--muted,#52636e);font-size:11px;margin-bottom:4px;}}"
+    },
+    {
+      "name": "Process Log Tones",
+      "kind": "custom",
+      "refersTo": "log-output",
+      "description": "Real output with semantic tones and readable message text.",
+      "html": "<pre class=\"ds-log\"><span class=\"ds-log-progress\">Downloading English → Romanian</span>\n<span class=\"ds-log-build\">Building langdetect</span>\n<span class=\"ds-log-success\">Server is ready</span>\n<span class=\"ds-log-warning\">WARNING: Task queue depth is 3</span>\n<span class=\"ds-log-error\">Port 5000 is in use.</span>\n<span class=\"ds-log-detail\">DEBUG: tokenized</span></pre>",
+      "css": ".ds-log{background:var(--bg,#f1f3f5);color:var(--text,#17232b);border-radius:9px;padding:18px;min-height:240px;max-height:440px;overflow:auto;white-space:pre;line-height:1.8;margin:0;font-family:Consolas,\"SFMono-Regular\",\"Liberation Mono\",monospace;font-size:12px;}.ds-log-error{color:var(--log-error,#ac2637);}.ds-log-warning{color:var(--log-warning,#835000);}.ds-log-success{color:var(--log-success,#087d44);}.ds-log-progress{color:var(--log-progress,#155da4);}.ds-log-build{color:var(--log-build,#6b39a3);}.ds-log-detail{color:var(--log-detail,#596a75);}"
+    },
+    {
+      "name": "Tasks Activity",
+      "kind": "custom",
+      "refersTo": "tasks-popover",
+      "description": "Title-bar Tasks shows real progress under Active and terminal session records under History.",
+      "html": "<section class=\"ds-tasks\" aria-label=\"Tasks\"><header class=\"ds-tasks-header\"><h2>Tasks</h2></header><div class=\"ds-tasks-body\"><h3 class=\"ds-tasks-group\">Active</h3><div class=\"ds-task-row\"><span class=\"ds-task-instance\">Local server</span><div class=\"ds-transfer\"><div class=\"ds-transfer-heading\"><span class=\"ds-transfer-name\">English → Romanian</span><span class=\"ds-transfer-phase\">Downloading</span></div><div class=\"ds-transfer-bar\" role=\"progressbar\" aria-label=\"English → Romanian: Downloading\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-valuetext=\"1.0 MiB / 2.0 MiB · Downloading\" style=\"--progress-value:50%\"><div class=\"ds-transfer-fill\"></div></div><div class=\"ds-transfer-footer\"><span>1.0 MiB / 2.0 MiB</span><span>50%</span></div></div></div></div></section>",
+      "css": ".ds-transfer{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;color:var(--text,#17232b);}.ds-transfer-heading,.ds-transfer-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;}.ds-transfer-name{display:flex;align-items:center;gap:7px;font-size:12px;flex-wrap:wrap;}.ds-transfer-phase,.ds-transfer-footer{font-size:11px;color:var(--muted,#52636e);}.ds-transfer-footer{margin-top:6px;font-variant-numeric:tabular-nums;}.ds-transfer-bar{height:5px;margin-top:9px;border-radius:3px;overflow:hidden;background:var(--surface,#e9edf0);}.ds-transfer-fill{height:100%;width:var(--progress-value,32%);background:var(--accent,#087d44);transition:width .15s linear;border-radius:inherit;}.ds-transfer-bar[data-state=\"indeterminate\"] .ds-transfer-fill{animation:ds-transfer-wait 1.2s ease-in-out infinite alternate;}.ds-transfer.failed .ds-transfer-fill{background:var(--danger,#af343f);}.ds-transfer.interrupted .ds-transfer-fill{background:var(--muted,#52636e);}.ds-transfer.failed .ds-transfer-fill,.ds-transfer.interrupted .ds-transfer-fill{animation:none;}@keyframes ds-transfer-wait{from{transform:translateX(0);}to{transform:translateX(210%);}}@media(prefers-reduced-motion:reduce){.ds-transfer-fill{transition:none;}.ds-transfer-bar[data-state=\"indeterminate\"] .ds-transfer-fill{animation:none;}}.ds-tasks{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;width:390px;max-width:calc(100vw - 20px);max-height:calc(100vh - 54px);display:flex;flex-direction:column;overflow:hidden;background:var(--panel,#fff);color:var(--text,#17232b);border:1px solid var(--border,#cdd6dc);border-radius:12px;}.ds-tasks-header{padding:10px 14px;border-bottom:1px solid var(--border,#cdd6dc);}.ds-tasks-header h2{margin:0;font-size:15px;}.ds-tasks-body{min-height:0;overflow:auto;}.ds-tasks-group{margin:0;padding:14px 14px 6px;font-size:12px;font-weight:600;color:var(--muted,#52636e);}.ds-task-row{padding:12px 14px;}.ds-task-instance{display:block;color:var(--muted,#52636e);font-size:11px;margin-bottom:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}.ds-task-row .ds-transfer-phase,.ds-task-row .ds-transfer-footer{font-size:10px;}.ds-task-row .ds-transfer-bar{margin-top:8px;}.ds-task-row .ds-transfer.complete .ds-transfer-bar{display:none;}.ds-task-row .ds-transfer.complete .ds-transfer-footer{margin-top:6px;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Operate",
+    "overview": "Operate is a compact desktop utility for managing local LibreTranslate servers. Its user-approved Modrinth-inspired shell pairs a single expandable rail with a rounded workspace, neutral surfaces, and green actions. The interface gives actual readiness, configuration, and logs priority over decoration.\n\nDark charcoal and light neutral themes share geometry and interaction states; persisted System mode follows the operating system. The shared components support twenty interface locales: English (en), Romanian (ro), Spanish (es), French (fr), German (de), Brazilian Portuguese (pt-BR), European Portuguese (pt-PT), Russian (ru), Simplified Chinese (zh-Hans), Japanese (ja), Korean (ko), Arabic (ar), Hindi (hi), Hungarian (hu), Italian (it), Polish (pl), Dutch (nl), Czech (cs), Ukrainian (uk), and Greek (el). Labels must wrap cleanly and Arabic content mirrors right to left. The existing two-panel speech icon on a green tile with a lime connection remains the packaged app identity, with transparency only outside the tile.",
+    "keyCharacteristics": [
+      "Compact desktop shell with one expandable rail.",
+      "Neutral tonal layering with green start/install actions, red stop controls, and green selection states.",
+      "Real process status and session tasks, direct lifecycle controls, connected work tabs, and actual local translation/statistics.",
+      "Shared Light, Dark, and System geometry across twenty locales, including mirrored Arabic content."
+    ],
+    "rules": [
+      {
+        "name": "The Single Shell Rule",
+        "body": "Keep branding in the title bar and navigation in one expandable rail; do not add a second workspace header or footer.",
+        "section": "layout"
+      },
+      {
+        "name": "The State Before Decoration Rule",
+        "body": "Use accent and semantic colors to explain available actions, selected controls, and real process state; do not add decorative metrics or status filler.",
+        "section": "colors"
+      },
+      {
+        "name": "The Flat Workspace Rule",
+        "body": "Separate resting workspace surfaces with tone and restrained borders. Reserve shadows for select popups, dialogs, and toasts.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the compact Modrinth-inspired rail, rounded workspace, green actions, and neutral themes.",
+      "Do show real readiness, installation progress, failures, and process logs.",
+      "Do retain visible keyboard focus, explicit language names, room for translated labels, and Arabic direction handling.",
+      "Do use the official Dioxus primitives and the existing local SVG asset sets.",
+      "Do show automatic-save and validation status for existing instances, retain explicit creation/Options actions, and use toasts without moving page content."
+    ],
+    "donts": [
+      "Don't add a second rail, duplicate title-bar branding, redundant workspace metadata bar, or footer.",
+      "Don't use fake metrics, decorative dashboard filler, or repeated explanatory copy.",
+      "Don't replace local interface SVG files with inline SVG or base64 icons in Rust.",
+      "Don't offer CUDA as ready merely because supported hardware was detected; device availability and runtime readiness are separate states.",
+      "Don't clip popup searches or allow floating option lists to leave the viewport."
+    ]
+  }
+}

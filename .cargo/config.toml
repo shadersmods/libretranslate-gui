@@ -1,0 +1,3 @@
+# Keep the Windows GUI executable usable without installing the VC++ runtime.
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]

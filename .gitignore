@@ -1,0 +1,14 @@
+/target/
+/.tools/
+/.runtime-test/
+/.impeccable/review/
+/.impeccable/mocks/
+*.log
+/output/
+/.playwright-cli/
+/.playwright/
+/.agents/
+/dist/
+__pycache__/
+release/
+release-staging/
