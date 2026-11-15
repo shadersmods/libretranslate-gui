@@ -327,7 +327,13 @@ fn defer(error: anyhow::Error, deferred: &mut Option<anyhow::Error>) {
 }
 fn trim_retained(stage: &Path) -> Result<()> {
     tree(stage)?;
-    for name in ["release.archive", "bundle", "helper.exe", "helper"] {
+    for name in [
+        "release.archive",
+        "release.msi",
+        "bundle",
+        "helper.exe",
+        "helper",
+    ] {
         let path = stage.join(name);
         match fs::symlink_metadata(&path) {
             Ok(metadata) if metadata.is_dir() => fs::remove_dir_all(path)?,
@@ -498,6 +504,7 @@ mod tests {
             parent,
             version: "v0.3.0".into(),
             files: vec![super::super::executable_name().into()],
+            msi: false,
         };
         fs::write(staging.join("job.json"), serde_json::to_vec(&job).unwrap()).unwrap();
         preparation.ready().unwrap();

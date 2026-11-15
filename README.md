@@ -42,7 +42,11 @@ Translation runs on your computer and works offline once setup is complete. You 
 
 ## Getting started
 
-Download the archive for your platform from [Releases](https://github.com/shadersmods/libretranslate-gui/releases), then extract it into a writable folder. On Windows and Linux, keep the executable and its `assets/` folder together. On macOS, open the included `.app` bundle and keep its contents intact.
+Download your platform's package from [Releases](https://github.com/shadersmods/libretranslate-gui/releases).
+
+- **Windows:** Run the `.msi` installer, then open **LibreTranslate GUI** from the Start menu. It installs for your Windows account without administrator access. A portable `.zip` is also available; extract it into a writable folder and keep the executable beside `assets/`.
+- **macOS:** Extract the ZIP and open the included `.app` bundle. Keep its contents intact.
+- **Linux:** Extract the `.tar.gz` into a writable folder and keep the executable beside `assets/`.
 
 1. Open **LibreTranslate GUI** and select **Add instance**.
 2. Set a name and port, choose at least two languages, then select **Create instance**.
@@ -61,7 +65,9 @@ The release workflow builds for all three platforms. Native macOS and Linux vali
 
 ## Your data
 
-By default, `data/` and `libretranslate-desktop.json` live beside the executable. Each instance has its own runtime and models. **Options** lets you choose different folders for instance data, downloaded packages, and managed Python. Folder changes apply after restarting the app and do not move existing files.
+The Windows installer stores settings and `data/` in `%LOCALAPPDATA%\LibreTranslate GUI`, separately from the program. Upgrading or uninstalling the app keeps these files. Portable builds store `data/` and `libretranslate-desktop.json` beside the executable.
+
+Each instance has its own runtime and models. **Options** lets you choose different folders for instance data, downloaded packages, and managed Python. Folder changes apply after restarting the app and do not move existing files. To reuse portable instances, close the portable app, choose its existing data folder in the installed app's **Options**, and restart. Keep that folder in place; Python environments can contain absolute paths.
 
 Text and files are sent to the selected local server. The app checks GitHub and PyPI for updates and contacts package and model hosts for downloads. LAN access is optional.
 
@@ -93,9 +99,13 @@ cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
 python tests/model_sync.py
+python tests/release_packaging.py
+python tests/windows_installer.py
 ```
 
 CI runs the Python tests with Python 3.11. The default test suite does not download translation models or require a GPU. The [verification guide](docs/usage.md#verification) covers the optional runtime tests.
+
+Windows CI also builds and tests the MSI. For a local installer build, use a Visual Studio developer shell with Python 3.11 and MSBuild, build the desktop app, then run `python .github/package_release.py` and `python .github/build_msi.py`. The pinned WiX SDK is restored automatically. Both the ZIP and MSI, with SHA-256 files, appear in `release/`.
 
 ## Reporting problems
 

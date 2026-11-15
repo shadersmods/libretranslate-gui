@@ -1,0 +1,15 @@
+<Project Sdk="WixToolset.Sdk/4.0.6">
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <OutputName>$(InstallerName)</OutputName>
+    <DebugType>none</DebugType>
+    <!-- This package deliberately supports only per-user installation. -->
+    <SuppressIces>ICE91</SuppressIces>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(InstallerSource)" />
+    <Compile Include="SetupUI.wxs" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="4.0.6" />
+  </ItemGroup>
+</Project>

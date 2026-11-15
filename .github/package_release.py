@@ -1,4 +1,5 @@
 """Package only program files, never a local instance or preferences."""
+import argparse
 import hashlib
 import os
 import platform
@@ -12,7 +13,7 @@ from pathlib import Path
 def package(root, *, system=None, machine=None, target=None, tag=None):
     root = Path(root)
     version = tomllib.loads((root / 'Cargo.toml').read_text(encoding='utf-8'))['package']['version']
-    tag = tag if tag is not None else os.environ.get('GITHUB_REF_NAME', 'v' + version)
+    tag = tag if tag is not None else os.environ.get('GITHUB_REF_NAME') or 'v' + version
     if tag != 'v' + version:
         raise SystemExit('Release tag must match Cargo.toml')
     system = {'Windows': 'Windows', 'Darwin': 'macOS', 'Linux': 'Linux'}[system or platform.system()]
@@ -86,4 +87,12 @@ def package(root, *, system=None, machine=None, target=None, tag=None):
 
 
 if __name__ == '__main__':
-    print(package(Path(__file__).resolve().parents[1]).name)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--current-version', action='store_true',
+                        help='Package a branch build using Cargo.toml, without checking the GitHub ref')
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parents[1]
+    tag = None
+    if args.current_version:
+        tag = 'v' + tomllib.loads((root / 'Cargo.toml').read_text(encoding='utf-8'))['package']['version']
+    print(package(root, tag=tag).name)

@@ -1,4 +1,4 @@
-//! Portable updates replace only a verified program bundle, never instance data.
+//! Verified updates use Windows Installer for MSI installations and file transactions for archives.
 use crate::app_updates::{REPOSITORY, Release};
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
@@ -30,10 +30,20 @@ pub struct Job {
     parent: u32,
     version: String,
     files: Vec<String>,
+    #[serde(default)]
+    msi: bool,
 }
 
 pub fn platform() -> Option<&'static str> {
-    match (std::env::consts::OS, std::env::consts::ARCH) {
+    platform_package(
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        crate::installation::is_msi(),
+    )
+}
+fn platform_package(os: &str, arch: &str, msi: bool) -> Option<&'static str> {
+    match (os, arch) {
+        ("windows", "x86_64") if msi => Some("Windows-x64.msi"),
         ("windows", "x86_64") => Some("Windows-x64.zip"),
         ("macos", "x86_64") => Some("macOS-x64.zip"),
         ("macos", "aarch64") => Some("macOS-arm64.zip"),
@@ -159,7 +169,7 @@ pub fn prepare(release: &Release, progress: SharedProgress) -> Result<Job> {
     );
     let asset = release
         .update_asset()
-        .context("No portable update for this platform")?;
+        .context("No compatible update package for this installation")?;
     ensure!(
         asset.size > 0 && asset.size <= MAX_DOWNLOAD,
         "Invalid update size"
@@ -179,7 +189,12 @@ pub fn prepare(release: &Release, progress: SharedProgress) -> Result<Job> {
         .get(fetch_url(&asset.browser_download_url)?)
         .send()?
         .error_for_status()?;
-    let archive = staging.join("release.archive");
+    let msi = crate::installation::is_msi();
+    let archive = staging.join(if msi {
+        "release.msi"
+    } else {
+        "release.archive"
+    });
     let mut file = fs::File::create(&archive)?;
     let mut hash = Sha256::new();
     let mut count = 0u64;
@@ -205,11 +220,15 @@ pub fn prepare(release: &Release, progress: SharedProgress) -> Result<Job> {
         format!("{:x}", hash.finalize()) == expected,
         "Update checksum mismatch"
     );
-    let unpacked = staging.join("bundle");
-    fs::create_dir(&unpacked)?;
-    let package = package_name(release).unwrap();
-    let prefix = package.trim_end_matches(".tar.gz").trim_end_matches(".zip");
-    let files = extract(&archive, &unpacked, prefix, package.ends_with(".zip"))?;
+    let files = if msi {
+        Vec::new()
+    } else {
+        let unpacked = staging.join("bundle");
+        fs::create_dir(&unpacked)?;
+        let package = package_name(release).unwrap();
+        let prefix = package.trim_end_matches(".tar.gz").trim_end_matches(".zip");
+        extract(&archive, &unpacked, prefix, package.ends_with(".zip"))?
+    };
     progress.lock().unwrap().phase = 2;
     let executable = current
         .strip_prefix(&root)?
@@ -223,6 +242,7 @@ pub fn prepare(release: &Release, progress: SharedProgress) -> Result<Job> {
         parent: std::process::id(),
         version: release.tag_name.clone(),
         files,
+        msi,
     };
     let helper = job.staging.join(if cfg!(windows) {
         "helper.exe"
@@ -476,6 +496,15 @@ fn validate_job(job: &Job) -> Result<()> {
         job.files.len() <= 10000 && job.files.iter().all(|file| allowed(Path::new(file))),
         "Invalid program file list"
     );
+    if job.msi {
+        ensure!(
+            cfg!(windows)
+                && crate::installation::is_msi_at(&root)
+                && job.files.is_empty()
+                && job.executable == "libretranslate-gui.exe",
+            "Invalid Windows Installer update job"
+        );
+    }
     ensure!(
         semver::Version::parse(job.version.trim_start_matches('v'))
             .is_ok_and(|version| version.pre.is_empty()),
@@ -635,6 +664,9 @@ pub fn recover_if_needed() -> Result<bool> {
 
 fn install(job: &Job) -> Result<()> {
     validate_job(job)?;
+    if job.msi {
+        return install_msi(job);
+    }
     rollback(job)?;
     let bundle = job.staging.join("bundle");
     let backup = job.staging.join("backup");
@@ -684,6 +716,39 @@ fn install(job: &Job) -> Result<()> {
         rollback(job).context("Could not restore the previous program files")?;
     }
     result
+}
+fn install_msi(job: &Job) -> Result<()> {
+    #[cfg(windows)]
+    {
+        let package = job.staging.join("release.msi");
+        ensure!(
+            storage::same_path(&dunce::canonicalize(&package)?, &package)
+                && fs::metadata(&package)?.is_file(),
+            "Invalid staged installer"
+        );
+        let windows = std::env::var_os("SystemRoot").context("Windows directory is unavailable")?;
+        let status =
+            std::process::Command::new(PathBuf::from(windows).join("System32/msiexec.exe"))
+                .arg("/i")
+                .arg(package)
+                .args(["/passive", "/norestart", "REBOOT=ReallySuppress"])
+                .arg(format!("INSTALLFOLDER={}", job.root.display()))
+                .arg("/L*v")
+                .arg(job.staging.join("installer.log"))
+                .status()?;
+        ensure!(
+            matches!(status.code(), Some(0 | 3010)),
+            "Windows Installer returned {}. See {} for details.",
+            status,
+            job.staging.join("installer.log").display()
+        );
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = job;
+        bail!("Windows Installer updates are only available on Windows")
+    }
 }
 fn parent_alive(pid: u32) -> bool {
     if pid == 0 {
@@ -835,6 +900,44 @@ mod tests {
             parent: 0,
             version: "v0.3.0".into(),
             files: files.into_iter().map(str::to_string).collect(),
+            msi: false,
+        }
+    }
+    #[test]
+    fn updates_match_the_installed_distribution_and_old_jobs_stay_portable() {
+        assert_eq!(
+            platform_package("windows", "x86_64", true),
+            Some("Windows-x64.msi")
+        );
+        assert_eq!(
+            platform_package("windows", "x86_64", false),
+            Some("Windows-x64.zip")
+        );
+        assert_eq!(
+            platform_package("macos", "aarch64", false),
+            Some("macOS-arm64.zip")
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let original = job(dir.path(), vec![executable_name()]);
+        let mut json = serde_json::to_value(&original).unwrap();
+        json.as_object_mut().unwrap().remove("msi");
+        assert!(!serde_json::from_value::<Job>(json).unwrap().msi);
+        let mut invalid = original;
+        invalid.msi = true;
+        assert!(validate_job(&invalid).is_err());
+        #[cfg(windows)]
+        {
+            fs::write(
+                invalid.root.join("libretranslate-gui.install.json"),
+                br#"{"schema":1,"kind":"msi"}"#,
+            )
+            .unwrap();
+            assert!(
+                validate_job(&invalid).is_err(),
+                "MSI jobs cannot replace loose program files"
+            );
+            invalid.files.clear();
+            validate_job(&invalid).unwrap();
         }
     }
     #[test]

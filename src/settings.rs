@@ -78,10 +78,14 @@ pub struct Settings {
 }
 impl Settings {
     pub fn load() -> Result<Self> {
-        let base = std::env::current_exe()?
+        let program = std::env::current_exe()?
             .parent()
             .context("The executable has no parent folder")?
             .to_path_buf();
+        let base = crate::installation::settings_base(
+            &program,
+            std::env::var_os("LOCALAPPDATA").map(PathBuf::from),
+        )?;
         let file = std::env::var_os("LIBRETRANSLATE_GUI_SETTINGS_FILE")
             .map(PathBuf::from)
             .unwrap_or_else(|| base.join("libretranslate-desktop.json"));
@@ -157,7 +161,7 @@ impl Settings {
         }
         let temporary = self.file.with_extension("json.tmp");
         let mut file = fs::File::create(&temporary)
-            .context("Could not save settings beside the executable. Move the application to a writable folder or set LIBRETRANSLATE_GUI_SETTINGS_FILE.")?;
+            .context("Could not save settings. Choose a writable location with LIBRETRANSLATE_GUI_SETTINGS_FILE.")?;
         use std::io::Write;
         file.write_all(&serde_json::to_vec_pretty(preferences)?)?;
         file.sync_all()?;

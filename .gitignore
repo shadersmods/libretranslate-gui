@@ -13,4 +13,6 @@
 __pycache__/
 release/
 release-staging/
+packaging/windows/obj/
+packaging/windows/bin/
 skills-lock.json

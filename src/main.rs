@@ -7,6 +7,7 @@ mod components;
 mod downloads;
 mod gpu;
 mod i18n;
+mod installation;
 mod logs;
 mod manager;
 mod model;

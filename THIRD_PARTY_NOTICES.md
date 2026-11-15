@@ -16,6 +16,10 @@ The app uses unmodified Dioxus desktop 0.7.10 from crates.io. [Upstream source](
 
 Country and regional SVG files in `assets/flags/` come from [lipis/flag-icons](https://github.com/lipis/flag-icons), pinned to revision `ac7e0eb3259eb62aa6100c435607e2fe03896a97`. Copyright Lipis. MIT license included in `licenses/flag-icons-MIT.txt`. The Esperanto flag (`eo.svg`) is an app-authored addition. Flags are visual aids alongside explicit language names and codes.
 
+# Windows installer
+
+Windows MSI packages use the WiX Toolset SDK and stock UI dialogs, version 4.0.6. Copyright (c) .NET Foundation and contributors. Microsoft Reciprocal License (MS-RL), included in `licenses/wix-MS-RL.txt`. [Pinned upstream source](https://github.com/wixtoolset/wix/tree/v4.0.6/src/ext/UI). The app's dialog sequence is in `packaging/windows/SetupUI.wxs`; a copy is included in the MSI under `licenses/wix/SetupUI.wxs`.
+
 # Interface icons
 
 The app-authored interface SVGs are stored in `assets/icons/`. Rust contains only asset references; SVG markup is kept in those files. Dioxus copies these and the country flags into the distribution's asset directory.

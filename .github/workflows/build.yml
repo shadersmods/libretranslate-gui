@@ -28,8 +28,19 @@ jobs:
       - run: cargo test --locked
       - run: python tests/model_sync.py
       - run: python tests/release_packaging.py
+      - run: python tests/windows_installer.py
+      - uses: microsoft/setup-msbuild@v2
+        if: runner.os == 'Windows'
+      - run: python tests/windows_installer.py --smoke
+        if: runner.os == 'Windows'
       - run: cargo install dioxus-cli --version 0.7.10 --locked
       - run: dx build --platform desktop --release --locked
+      - name: Package Windows ZIP and MSI
+        if: runner.os == 'Windows'
+        run: |
+          python .github/package_release.py --current-version
+          python .github/build_msi.py
+          python tests/windows_installer.py --verify-package (Get-ChildItem release/*.msi).FullName
       - uses: actions/upload-artifact@v4
         with:
           name: libretranslate-desktop-${{ runner.os }}-${{ runner.arch }}
@@ -39,4 +50,5 @@ jobs:
             assets/icon.ico
             assets/icon.icns
             README.md
+            release/*
           if-no-files-found: error
