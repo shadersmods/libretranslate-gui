@@ -799,8 +799,38 @@
       },
       {
         "name": "transfer-value",
-        "value": "width .15s linear",
+        "value": "transform var(--motion-progress, 150ms) linear",
         "purpose": "Real downloaded-byte progress when a total is known."
+      },
+      {
+        "name": "surface-dialog",
+        "value": "opacity and scale(.96) to scale(1), 250ms enter / 150ms exit, cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Centered dialog panel and backdrop enter together; closed content is inert."
+      },
+      {
+        "name": "surface-popover",
+        "value": "opacity and scale(.97) to scale(1), 180ms enter / 125ms exit, top-right origin, cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Connect Tasks to its title-bar trigger without staggering its contents."
+      },
+      {
+        "name": "action-press",
+        "value": "scale(.97), 100ms press / 160ms release, cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Pointer feedback on action buttons; navigation, select triggers, and window controls keep their geometry."
+      },
+      {
+        "name": "switch-state",
+        "value": "transform 120ms cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Connect pointer-triggered switch states."
+      },
+      {
+        "name": "toast-entry",
+        "value": "opacity and scale(.97) to scale(1), 180ms cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Brief notification entrance; upstream dismissal remains immediate."
+      },
+      {
+        "name": "keyboard-motion",
+        "value": "transition: none !important",
+        "purpose": "Keyboard input settles interactive transitions immediately; reduced motion also disables loading animations."
       },
       {
         "name": "transfer-wait",
@@ -1031,7 +1061,7 @@
       "refersTo": "tasks-popover",
       "description": "Title-bar Tasks shows real progress under Active and terminal session records under History.",
       "html": "<section class=\"ds-tasks\" aria-label=\"Tasks\"><header class=\"ds-tasks-header\"><h2>Tasks</h2></header><div class=\"ds-tasks-body\"><h3 class=\"ds-tasks-group\">Active</h3><div class=\"ds-task-row\"><span class=\"ds-task-instance\">Local server</span><div class=\"ds-transfer\"><div class=\"ds-transfer-heading\"><span class=\"ds-transfer-name\">English → Romanian</span><span class=\"ds-transfer-phase\">Downloading</span></div><div class=\"ds-transfer-bar\" role=\"progressbar\" aria-label=\"English → Romanian: Downloading\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-valuetext=\"1.0 MiB / 2.0 MiB · Downloading\" style=\"--progress-value:50%\"><div class=\"ds-transfer-fill\"></div></div><div class=\"ds-transfer-footer\"><span>1.0 MiB / 2.0 MiB</span><span>50%</span></div></div></div></div></section>",
-      "css": ".ds-transfer{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;color:var(--text,#17232b);}.ds-transfer-heading,.ds-transfer-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;}.ds-transfer-name{display:flex;align-items:center;gap:7px;font-size:12px;flex-wrap:wrap;}.ds-transfer-phase,.ds-transfer-footer{font-size:11px;color:var(--muted,#52636e);}.ds-transfer-footer{margin-top:6px;font-variant-numeric:tabular-nums;}.ds-transfer-bar{height:5px;margin-top:9px;border-radius:3px;overflow:hidden;background:var(--surface,#e9edf0);}.ds-transfer-fill{height:100%;width:var(--progress-value,32%);background:var(--accent,#087d44);transition:width .15s linear;border-radius:inherit;}.ds-transfer-bar[data-state=\"indeterminate\"] .ds-transfer-fill{animation:ds-transfer-wait 1.2s ease-in-out infinite alternate;}.ds-transfer.failed .ds-transfer-fill{background:var(--danger,#af343f);}.ds-transfer.interrupted .ds-transfer-fill{background:var(--muted,#52636e);}.ds-transfer.failed .ds-transfer-fill,.ds-transfer.interrupted .ds-transfer-fill{animation:none;}@keyframes ds-transfer-wait{from{transform:translateX(0);}to{transform:translateX(210%);}}@media(prefers-reduced-motion:reduce){.ds-transfer-fill{transition:none;}.ds-transfer-bar[data-state=\"indeterminate\"] .ds-transfer-fill{animation:none;}}.ds-tasks{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;width:390px;max-width:calc(100vw - 20px);max-height:calc(100vh - 54px);display:flex;flex-direction:column;overflow:hidden;background:var(--panel,#fff);color:var(--text,#17232b);border:1px solid var(--border,#cdd6dc);border-radius:12px;}.ds-tasks-header{padding:10px 14px;border-bottom:1px solid var(--border,#cdd6dc);}.ds-tasks-header h2{margin:0;font-size:15px;}.ds-tasks-body{min-height:0;overflow:auto;}.ds-tasks-group{margin:0;padding:14px 14px 6px;font-size:12px;font-weight:600;color:var(--muted,#52636e);}.ds-task-row{padding:12px 14px;}.ds-task-instance{display:block;color:var(--muted,#52636e);font-size:11px;margin-bottom:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}.ds-task-row .ds-transfer-phase,.ds-task-row .ds-transfer-footer{font-size:10px;}.ds-task-row .ds-transfer-bar{margin-top:8px;}.ds-task-row .ds-transfer.complete .ds-transfer-bar{display:none;}.ds-task-row .ds-transfer.complete .ds-transfer-footer{margin-top:6px;}"
+      "css": ".ds-transfer{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;color:var(--text,#17232b);}.ds-transfer-heading,.ds-transfer-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;}.ds-transfer-name{display:flex;align-items:center;gap:7px;font-size:12px;flex-wrap:wrap;}.ds-transfer-phase,.ds-transfer-footer{font-size:11px;color:var(--muted,#52636e);}.ds-transfer-footer{margin-top:6px;font-variant-numeric:tabular-nums;}.ds-transfer-bar{direction:ltr;height:5px;margin-top:9px;border-radius:3px;overflow:hidden;background:var(--surface,#e9edf0);}.ds-transfer-fill{height:100%;width:100%;transform:translateX(calc(var(--progress-value,0%) - 100%));background:var(--accent,#087d44);transition:transform var(--motion-progress,150ms) linear;border-radius:inherit;}.ds-transfer-bar[data-state=\"indeterminate\"] .ds-transfer-fill{width:32%;transform:translateX(0);transition:none;animation:ds-transfer-wait 1.2s ease-in-out infinite alternate;}.ds-transfer.failed .ds-transfer-fill{background:var(--danger,#af343f);}.ds-transfer.interrupted .ds-transfer-fill{background:var(--muted,#52636e);}.ds-transfer.failed .ds-transfer-fill,.ds-transfer.interrupted .ds-transfer-fill{animation:none;}@keyframes ds-transfer-wait{from{transform:translateX(0);}to{transform:translateX(210%);}}@media(prefers-reduced-motion:reduce){.ds-transfer-fill{transition:none;}.ds-transfer-bar[data-state=\"indeterminate\"] .ds-transfer-fill{animation:none;}}.ds-tasks{font-family:\"Segoe UI\",-apple-system,BlinkMacSystemFont,\"Noto Sans\",sans-serif;width:390px;max-width:calc(100vw - 20px);max-height:calc(100vh - 54px);display:flex;flex-direction:column;overflow:hidden;background:var(--panel,#fff);color:var(--text,#17232b);border:1px solid var(--border,#cdd6dc);border-radius:12px;}.ds-tasks-header{padding:10px 14px;border-bottom:1px solid var(--border,#cdd6dc);}.ds-tasks-header h2{margin:0;font-size:15px;}.ds-tasks-body{min-height:0;overflow:auto;}.ds-tasks-group{margin:0;padding:14px 14px 6px;font-size:12px;font-weight:600;color:var(--muted,#52636e);}.ds-task-row{padding:12px 14px;}.ds-task-instance{display:block;color:var(--muted,#52636e);font-size:11px;margin-bottom:7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}.ds-task-row .ds-transfer-phase,.ds-task-row .ds-transfer-footer{font-size:10px;}.ds-task-row .ds-transfer-bar{margin-top:8px;}.ds-task-row .ds-transfer.complete .ds-transfer-bar{display:none;}.ds-task-row .ds-transfer.complete .ds-transfer-footer{margin-top:6px;}"
     }
   ],
   "narrative": {

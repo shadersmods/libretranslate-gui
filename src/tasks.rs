@@ -71,7 +71,7 @@ pub fn TasksDropdown() -> Element {
             Icon {kind:"download"} span {{locale.text("tasks")}}
             if active_count>0 {span {class:"task-count","{active_count}"}}
         }
-        PopoverContent {class:"tasks-popover", side:dioxus_primitives::ContentSide::Bottom, align:dioxus_primitives::ContentAlign::End, aria_label:locale.text("tasks"), dir:locale.direction(),
+        PopoverContent {class:"tasks-popover", inert:(!open()).then_some(""), side:dioxus_primitives::ContentSide::Bottom, align:dioxus_primitives::ContentAlign::End, aria_label:locale.text("tasks"), dir:locale.direction(),
             div {class:"tasks-header", h2 {{locale.text("tasks")}} Button {class:"task-dismiss", aria_label:locale.text("close_tasks"), onclick:move |_|open.set(false), Icon{kind:"close"}}}
             div {class:"tasks-body",
                 if active_count==0&&history==0 {p {class:"tasks-empty",{locale.text("tasks_empty")}}}

@@ -207,7 +207,7 @@ fn UpdateDialog() -> Element {
     };
     // The controlled dialog ignores passive dismissals from the backdrop.
     // Explicit controls and Escape remain available before installation begins.
-    rsx! {DialogRoot{id:"app-update-dialog".to_string(),class:"dialog-backdrop",open:Some(open),on_open_change:move|_|{},
+    rsx! {DialogRoot{id:"app-update-dialog".to_string(),class:"dialog-backdrop",inert:(!open).then_some(""),open:Some(open),on_open_change:move|_|{},
         div {class:"update-dialog-layer",tabindex:"-1",onkeydown:move|event:KeyboardEvent|{
             if event.key()==Key::Escape && !working(){event.prevent_default();event.stop_propagation();state.write().app_update_open=false;}
         },

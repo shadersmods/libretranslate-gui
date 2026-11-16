@@ -129,6 +129,7 @@ pub fn app() -> Element {
     let is_maximized = maximized();
     rsx! {
         document::Title { "LibreTranslate GUI" }
+        document::Script { src: asset!("/assets/motion.js"), defer: true }
         style { {include_str!("../assets/app.css")} }
         div { class: format!("app-shell {} {}", if expanded { "sidebar-expanded" } else { "" }, if is_maximized { "window-maximized" } else { "" }), lang: locale.code(), dir: locale.direction(), "data-theme": theme.code(),
           toast::ToastProvider { class: "toast-region", max_toasts: 4usize, render_toast: |props: toast::ToastPropsWithOwner| rsx! { AppToast { ..props } },
@@ -1042,12 +1043,23 @@ fn RemoveDialog() -> Element {
     let mut state = use_context::<Signal<AppState>>();
     let locale = state.read().locale;
     let remove = state.read().remove;
-    let hosted = state
-        .read()
-        .views
-        .iter()
-        .any(|view| Some(view.instance.id) == remove && view.instance.is_remote());
-    rsx! { DialogRoot { id: "remove-dialog".to_string(), class: "dialog-backdrop", open: Some(remove.is_some()), on_open_change: move |open: bool| { if !open { state.write().remove = None; } },
+    let hosted = use_memo(move || {
+        let s = state.read();
+        s.remove.map(|id| {
+            s.views
+                .iter()
+                .any(|view| view.instance.id == id && view.instance.is_remote())
+        })
+    });
+    let mut last_hosted = use_signal(|| false);
+    use_effect(move || {
+        if let Some(hosted) = hosted() {
+            last_hosted.set(hosted);
+        }
+    });
+    // Keep the description stable while the closed dialog finishes its exit.
+    let hosted = hosted().unwrap_or_else(|| last_hosted());
+    rsx! { DialogRoot { id: "remove-dialog".to_string(), class: "dialog-backdrop", inert: remove.is_none().then_some(""), open: Some(remove.is_some()), on_open_change: move |open: bool| { if !open { state.write().remove = None; } },
       DialogContent { class: "remove-dialog",
         DialogTitle { {locale.text("remove_title")} }
         DialogDescription { {locale.text(if hosted {"hosted_remove_description"}else{"remove_description"})} }

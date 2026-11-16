@@ -1,4 +1,16 @@
 :root { font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Noto Sans", sans-serif; font-size: 14px; }
+:root {
+  --motion-color: 120ms;
+  --motion-rail: 180ms;
+  --motion-press: 100ms;
+  --motion-release: 160ms;
+  --motion-popover: 180ms;
+  --motion-popover-exit: 125ms;
+  --motion-dialog: 250ms;
+  --motion-dialog-exit: 150ms;
+  --motion-progress: 150ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
 * { box-sizing: border-box; }
 body { margin: 0; }
 .app-shell { grid-template-rows: 46px minmax(0, 1fr); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
@@ -74,7 +86,7 @@ button { border: 0; border-radius: 9px; line-height: 1.35; }
   --success-bg: #d9eddf; --error-bg: #f6dfe1;
   color-scheme: light; color: var(--text); background: var(--bg);
   display: grid; grid-template-columns: 68px minmax(0, 1fr); height: 100vh; min-height: 400px;
-  transition: grid-template-columns 180ms ease-out;
+  transition: grid-template-columns var(--motion-rail) ease-out;
 }
 .app-shell.sidebar-expanded { grid-template-columns: 254px minmax(0, 1fr); }
 .rail-label { display: none; }
@@ -132,7 +144,7 @@ button, input { color: inherit; }
 input { caret-color: var(--accent); }
 ::selection { background: #5ba67577; }
 button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-button:not(:disabled) { transition: background-color 120ms ease-out, color 120ms ease-out; }
+button:not(:disabled) { transition: background-color var(--motion-color) ease-out, color var(--motion-color) ease-out; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { border-radius: 8px; background: var(--border); }
@@ -337,8 +349,8 @@ input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { appearance:
 .card-meta { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: auto; font-size: 11px; color: var(--muted); }
 .card-actions { display: flex; gap: 8px; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 18px; margin-top: 18px; }
 .card-actions button { font-size: 11px; padding: 8px 10px; min-height: 35px; }
-.dialog-backdrop[data-state="open"] { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; background: #080d16a6; padding: 24px; }
-.dialog-backdrop[data-state="closed"] { display: none; }
+.dialog-backdrop { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; background: #080d16a6; padding: 24px; opacity: 1; }
+.dialog-backdrop[data-state="closed"] { opacity: 0; pointer-events: none; }
 .remove-dialog { width: min(100%, 470px); padding: 28px; border-radius: 15px; color: var(--text); background: var(--panel); box-shadow: 0 18px 70px #0005; }
 .remove-dialog h2 { font-size: 22px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
@@ -520,9 +532,9 @@ input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { appearance:
 .transfer-footer { margin-top:6px; font-variant-numeric:tabular-nums; }
 .model-transfer.complete .transfer-phase {color:var(--accent);}
 .model-transfer.failed .transfer-phase {color:var(--danger);}
-.model-transfer-bar { height:5px; margin-top:9px; border-radius:3px; overflow:hidden; background:var(--surface); }
-.model-transfer-fill { height:100%; width:var(--progress-value, 32%); background:var(--accent); transition:width .15s linear; border-radius:inherit; }
-.model-transfer-bar[data-state="indeterminate"] .model-transfer-fill { animation:transfer-wait 1.2s ease-in-out infinite alternate; }
+.model-transfer-bar { height:5px; margin-top:9px; border-radius:3px; overflow:hidden; background:var(--surface); direction:ltr; }
+.model-transfer-fill { height:100%; width:100%; transform:translateX(calc(var(--progress-value, 0%) - 100%)); background:var(--accent); transition:transform var(--motion-progress) linear; border-radius:inherit; }
+.model-transfer-bar[data-state="indeterminate"] .model-transfer-fill { width:32%; transform:translateX(0); transition:none; animation:transfer-wait 1.2s ease-in-out infinite alternate; }
 .model-transfer.failed .model-transfer-fill {background:var(--danger);}
 .model-transfer.interrupted .model-transfer-fill {background:var(--muted);}
 .model-transfer.failed .model-transfer-fill, .model-transfer.interrupted .model-transfer-fill {animation:none;}
@@ -560,7 +572,7 @@ input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { appearance:
 .tasks-trigger .icon {width:14px; height:14px;}
 .task-count {font-variant-numeric:tabular-nums; font-size:10px; font-weight:650;}
 .tasks-popover {position:fixed; top:42px; right:10px; z-index:4500; width:390px; max-width:calc(100vw - 20px); max-height:calc(100vh - 54px); display:flex; flex-direction:column; overflow:hidden; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:12px; cursor:default;}
-.tasks-popover[data-state="closed"] {display:none;}
+.tasks-popover[data-state="closed"] {opacity:0; pointer-events:none;}
 .tasks-header, .task-group-heading, .task-instance-heading {display:flex; align-items:center; justify-content:space-between; gap:12px;}
 .tasks-header {padding:10px 14px; border-bottom:1px solid var(--border);}
 .tasks-header h2 {margin:0; font-size:15px;}
@@ -688,3 +700,32 @@ pre, .path-input-row input {text-align:left;}
 .update-progress {margin-top:12px; flex-shrink:0;}
 .update-progress p {font-size:12px; margin:6px 0;}
 .update-progress .model-transfer-bar[data-state="loading"] .model-transfer-fill {transition:none;}
+
+/* Occasional surfaces enter together; content and controls never wait on a stagger. */
+@media (prefers-reduced-motion: no-preference) {
+  .dialog-backdrop { transition:opacity var(--motion-dialog-exit) var(--ease-out); }
+  .dialog-backdrop[data-state="open"] { transition-duration:var(--motion-dialog); }
+  .remove-dialog, .app-update-dialog { transform:scale(1); transform-origin:center; transition:transform var(--motion-dialog-exit) var(--ease-out); }
+  .dialog-backdrop[data-state="open"] :is(.remove-dialog, .app-update-dialog) { transition-duration:var(--motion-dialog); }
+  .dialog-backdrop[data-state="closed"] :is(.remove-dialog, .app-update-dialog) { transform:scale(.96); }
+
+  .tasks-popover { opacity:1; transform:scale(1); transform-origin:right top; transition:opacity var(--motion-popover-exit) var(--ease-out), transform var(--motion-popover-exit) var(--ease-out); }
+  .tasks-popover[data-state="open"] { transition-duration:var(--motion-popover); }
+  .tasks-popover[data-state="closed"] { opacity:0; transform:scale(.97); }
+
+  .app-toast { transform-origin:right top; transition:opacity var(--motion-popover) var(--ease-out), transform var(--motion-popover) var(--ease-out); }
+
+  .dx-switch .switch-thumb { transition:transform var(--motion-color) var(--ease-out), background-color var(--motion-color) ease-out; }
+  button:is(.primary, .secondary, .danger, .tool-button):not(:disabled) { transition:background-color var(--motion-color) ease-out, color var(--motion-color) ease-out, transform var(--motion-release) var(--ease-out); }
+  :root:not([data-input-modality="keyboard"]) button:is(.primary, .secondary, .danger, .tool-button):not(:disabled):active { transform:scale(.97); transition-duration:var(--motion-color), var(--motion-color), var(--motion-press); }
+
+  @starting-style {
+    :root:not([data-input-modality="keyboard"]) .dialog-backdrop[data-state="open"] { opacity:0; }
+    :root:not([data-input-modality="keyboard"]) .dialog-backdrop[data-state="open"] :is(.remove-dialog, .app-update-dialog) { transform:scale(.96); }
+    :root:not([data-input-modality="keyboard"]) .tasks-popover[data-state="open"],
+    :root:not([data-input-modality="keyboard"]) .app-toast { opacity:0; transform:scale(.97); }
+  }
+}
+
+/* Input modality changes before the app handles the key, so interruptions settle immediately. */
+:root[data-input-modality="keyboard"] :is(button, .switch-thumb, .app-shell, .dialog-backdrop, .remove-dialog, .app-update-dialog, .tasks-popover, .app-toast) { transition:none !important; }
