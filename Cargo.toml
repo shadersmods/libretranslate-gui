@@ -1,6 +1,6 @@
 [package]
 name = "libretranslate-gui"
-version = "0.2.9"
+version = "0.2.10"
 edition = "2024"
 rust-version = "1.88"
 description = "A native Rust desktop manager for local LibreTranslate instances"

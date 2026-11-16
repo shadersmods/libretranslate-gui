@@ -111,12 +111,12 @@ Python 3.11 and MSBuild are required. The project restores WiX SDK and UI extens
 
 ### Unsigned MSIX
 
-The Windows build also produces `LibreTranslate-GUI-0.2.9-Installer-Windows-x64-Unsigned.msix` and its SHA-256 file. The Windows SDK's MakeAppx tool validates the package, and the build compares every packaged program file with the release stage. It contains the desktop app and its assets; Python and translation models are installed on first setup.
+The Windows build also produces `LibreTranslate-GUI-0.2.10-Installer-Windows-x64-Unsigned.msix` and its SHA-256 file. The Windows SDK's MakeAppx tool validates the package, and the build compares every packaged program file with the release stage. It contains the desktop app and its assets; Python and translation models are installed on first setup.
 
 This package is for Windows 11 testing. It uses Microsoft's unsigned-package identity and is not a signed installer for general distribution. To test it, open PowerShell as administrator and run:
 
 ```powershell
-Add-AppxPackage -Path ".\LibreTranslate-GUI-0.2.9-Installer-Windows-x64-Unsigned.msix" -AllowUnsigned
+Add-AppxPackage -Path ".\LibreTranslate-GUI-0.2.10-Installer-Windows-x64-Unsigned.msix" -AllowUnsigned
 ```
 
 Use the MSI for ordinary installation. A production MSIX release needs a signing certificate and a rebuilt manifest with the matching publisher identity. [Microsoft's unsigned-package documentation](https://learn.microsoft.com/en-us/windows/msix/package/unsigned-package) explains the testing restrictions.
