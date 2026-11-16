@@ -17,6 +17,7 @@ mod network;
 mod paths;
 mod public_instances;
 mod releases;
+mod remote_health;
 mod removals;
 mod runtime;
 mod self_update;

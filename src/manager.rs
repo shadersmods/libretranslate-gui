@@ -769,25 +769,16 @@ impl Actor {
 
 fn remote_healthy(url: &str, timeout: Duration) -> bool {
     let check = || -> Result<bool> {
-        let client = reqwest::blocking::Client::builder()
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+        let client = reqwest::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(timeout)
+            .user_agent("LibreTranslate-GUI")
             .build()?;
-        let response = client
-            .get(format!("{}/health", url.trim_end_matches('/')))
-            .send()?;
-        if response.status() != reqwest::StatusCode::OK {
-            return Ok(false);
-        }
-        use std::io::Read;
-        let mut body = Vec::new();
-        response.take(4097).read_to_end(&mut body)?;
-        if body.len() > 4096 {
-            return Ok(false);
-        }
-        let value: serde_json::Value = serde_json::from_slice(&body)?;
-        Ok(value.get("status").and_then(|status| status.as_str()) == Some("ok"))
+        let outcome = runtime.block_on(crate::remote_health::check(&client, url, timeout));
+        runtime.shutdown_background();
+        Ok(matches!(outcome, crate::remote_health::ProbeOutcome::Online(_)))
     };
     check().unwrap_or(false)
 }
@@ -816,6 +807,58 @@ fn healthy(url: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn saved_remote_checks_accept_legacy_languages_fallback_without_accepting_websites() {
+        use std::{io::{Read, Write}, net::TcpListener};
+        let languages = r#"[{"code":"en"},{"code":"es"}]"#;
+        for (responses, expected) in [
+            (vec![(200,r#"{"status":"ok"}"#)],true),
+            (vec![(404,"{}"),(200,languages)],true),
+            (vec![(405,"{}"),(200,languages)],true),
+            (vec![(404,"{}"),(200,"[]")],false),
+            (vec![(404,"{}"),(200,"<html>Login</html>")],false),
+            (vec![(404,"{}"),(200,r#"[{"code":"bad code"}]"#)],false),
+            (vec![(503,"{}")],false),
+            (vec![(200,"<html>Website</html>")],false),
+            (vec![(302,"{}")],false),
+        ] {
+            let listener=TcpListener::bind("127.0.0.1:0").unwrap();
+            let address=listener.local_addr().unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let steps=responses.len();
+            let worker=thread::spawn(move || {
+                let mut paths=Vec::new();
+                for (status,body) in responses {
+                    let deadline=Instant::now()+Duration::from_secs(3);
+                    let mut stream=loop {
+                        match listener.accept() {
+                            Ok((stream,_))=>break stream,
+                            Err(error) if error.kind()==std::io::ErrorKind::WouldBlock && Instant::now()<deadline=>thread::sleep(Duration::from_millis(2)),
+                            Err(error)=>panic!("Health fixture connection failed: {error}"),
+                        }
+                    };
+                    stream.set_nonblocking(false).unwrap();
+                    stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                    let mut request=Vec::new();
+                    let mut buffer=[0;2048];
+                    while !request.windows(4).any(|bytes|bytes==b"\r\n\r\n") {
+                        let size=stream.read(&mut buffer).unwrap();
+                        assert!(size>0 && request.len()+size<=8192);
+                        request.extend_from_slice(&buffer[..size]);
+                    }
+                    paths.push(String::from_utf8(request).unwrap().lines().next().unwrap().to_owned());
+                    let reply=format!("HTTP/1.1 {status} Test\r\nContent-Length: {}\r\nConnection: close\r\nLocation: http://127.0.0.1:1/other\r\n\r\n{body}",body.len());
+                    stream.write_all(reply.as_bytes()).unwrap();
+                }
+                paths
+            });
+            assert_eq!(remote_healthy(&format!("http://{address}/prefix/"),Duration::from_secs(1)),expected);
+            let paths=worker.join().unwrap();
+            assert_eq!(paths[0],"GET /prefix/health HTTP/1.1");
+            if steps==2 {assert_eq!(paths[1],"GET /prefix/languages HTTP/1.1");}
+        }
+    }
+
     #[test]
     fn manual_health_checks_preserve_translation_until_failure_threshold() {
         let root = tempfile::tempdir().unwrap();
