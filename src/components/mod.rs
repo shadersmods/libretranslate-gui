@@ -3,8 +3,8 @@
 use dioxus::prelude::*;
 use dioxus_core::AttributeValue;
 use dioxus_primitives::{ContentSide, combobox, tooltip};
-mod flags;
 mod countries;
+mod flags;
 mod icons;
 pub use icons::Icon;
 

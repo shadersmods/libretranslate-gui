@@ -489,7 +489,9 @@ fn PublicInstancePicker(instance: ReadSignal<Instance>, editable: bool) -> Eleme
     let locale = state.read().locale;
     let mut refresh = use_signal(|| 0u32);
     let mut result = use_signal(|| None::<Result<crate::public_instances::Catalog, ()>>);
-    let mut probes = use_signal(std::collections::BTreeMap::<String, crate::public_instances::ProbeOutcome>::new);
+    let mut probes = use_signal(
+        std::collections::BTreeMap::<String, crate::public_instances::ProbeOutcome>::new,
+    );
     use_resource(move || {
         let _ = refresh();
         async move {
@@ -502,7 +504,8 @@ fn PublicInstancePicker(instance: ReadSignal<Instance>, editable: bool) -> Eleme
                     result.set(Some(Ok(catalog)));
                     crate::public_instances::probe_all(candidates, move |url, outcome| {
                         probes.write().insert(url, outcome);
-                    }).await;
+                    })
+                    .await;
                 }
                 _ => result.set(Some(Err(()))),
             }
@@ -511,18 +514,40 @@ fn PublicInstancePicker(instance: ReadSignal<Instance>, editable: bool) -> Eleme
     let response = result.read().clone();
     let loading = response.is_none();
     let failed = matches!(response, Some(Err(_)));
-    let entries = response.and_then(Result::ok).map(|catalog| catalog.instances).unwrap_or_default();
+    let entries = response
+        .and_then(Result::ok)
+        .map(|catalog| catalog.instances)
+        .unwrap_or_default();
     let draft = instance();
     let id = draft.id;
-    let value = entries.iter().find(|item| item.url == draft.remote_url.trim().trim_end_matches('/'))
-        .map(|item| item.url.clone()).unwrap_or_default();
+    let value = entries
+        .iter()
+        .find(|item| item.url == draft.remote_url.trim().trim_end_matches('/'))
+        .map(|item| item.url.clone())
+        .unwrap_or_default();
     let mut choices = vec![Choice::new("", locale.text("public_instances_manual"))];
-    choices.extend(entries.iter().map(|item| public_instance_choice(item, probes.read().get(&item.url), locale)));
+    choices.extend(
+        entries
+            .iter()
+            .map(|item| public_instance_choice(item, probes.read().get(&item.url), locale)),
+    );
     let completed = probes.read().len();
     let total = entries.len();
-    let hint = if loading {"public_instances_loading"} else if failed {"public_instances_failed"}
-        else if entries.is_empty() {"public_instances_empty"} else if completed < total {"public_probing"} else {"public_complete"};
-    let hint = locale.text(hint).replace("{done}", &completed.to_string()).replace("{total}", &total.to_string());
+    let hint = if loading {
+        "public_instances_loading"
+    } else if failed {
+        "public_instances_failed"
+    } else if entries.is_empty() {
+        "public_instances_empty"
+    } else if completed < total {
+        "public_probing"
+    } else {
+        "public_complete"
+    };
+    let hint = locale
+        .text(hint)
+        .replace("{done}", &completed.to_string())
+        .replace("{total}", &total.to_string());
     rsx! {div {class:"field field-wide public-instances-field",
         label {r#for:"public-instances",{locale.text("public_instances")}}
         div {class:"public-instance-controls",
@@ -553,33 +578,136 @@ fn PublicInstancePicker(instance: ReadSignal<Instance>, editable: bool) -> Eleme
     }}
 }
 
-fn public_instance_choice(candidate: &crate::public_instances::Candidate, probe: Option<&crate::public_instances::ProbeOutcome>, locale: Locale) -> Choice {
+fn public_instance_choice(
+    candidate: &crate::public_instances::Candidate,
+    probe: Option<&crate::public_instances::ProbeOutcome>,
+    locale: Locale,
+) -> Choice {
     use crate::components::{ChoiceDetails, ChoiceFact, ChoiceStatus};
     use crate::public_instances::ProbeOutcome;
     let codes = candidate.language_codes();
     let formats = candidate.file_formats();
-    let count = |values: &Option<Vec<String>>| values.as_ref().map(|values| values.len().to_string()).unwrap_or_else(|| "—".into());
-    let reported = |values: &Option<Vec<String>>| values.as_ref().filter(|values| !values.is_empty())
-        .map(|values| values.join(", ")).unwrap_or_else(|| locale.text("public_not_reported").into());
-    let limit = candidate.character_limit.filter(|value| *value >= -1);
-    let limit_label = if limit == Some(-1) {locale.text("unlimited").to_string()}
-        else {locale.text("public_chars").replace("{count}", &limit.map(|value| value.to_string()).unwrap_or_else(|| "—".into()))};
-    let status = match probe {
-        None => ChoiceStatus {label:locale.text("remote_checking").into(),title:locale.text("public_ping").into(),tone:"checking"},
-        Some(ProbeOutcome::Online(ms)) => ChoiceStatus {label:format!("{} · {ms} ms",locale.text("remote_online")),title:locale.text("public_ping").into(),tone:"online"},
-        Some(ProbeOutcome::Http(code)) => ChoiceStatus {label:format!("HTTP {code}"),title:format!("{} (HTTP {code})",locale.text("public_unreachable")),tone:"offline"},
-        Some(ProbeOutcome::Invalid) => ChoiceStatus {label:locale.text("public_unverified").into(),title:locale.text("public_invalid_health").into(),tone:"offline"},
-        Some(outcome) => ChoiceStatus {label:locale.text("remote_offline").into(),title:locale.text(if *outcome==ProbeOutcome::Timeout {"public_timeout"} else {"public_unreachable"}).into(),tone:"offline"},
+    let count = |values: &Option<Vec<String>>| {
+        values
+            .as_ref()
+            .map(|values| values.len().to_string())
+            .unwrap_or_else(|| "—".into())
     };
-    let title = candidate.checked_at.as_ref().map(|time|format!("{}\n{}",candidate.url,locale.text("public_checked_at").replace("{time}",time))).unwrap_or_else(||candidate.url.clone());
-    Choice {details:Some(ChoiceDetails {
-        country_code:candidate.country.as_ref().map(|country|country.code.clone()),title,
-        metadata:vec![
-            ChoiceFact {label:locale.text("public_languages").replace("{count}",&count(&codes)),title:reported(&codes)},
-            ChoiceFact {label:if candidate.files_translation==Some(false) {locale.text("public_files_disabled").into()} else {locale.text("public_files").replace("{count}",&count(&formats))},title:if candidate.files_translation==Some(false) {locale.text("public_files_disabled").into()} else {reported(&formats)}},
-            ChoiceFact {label:limit_label.clone(),title:if limit.is_none() {locale.text("public_not_reported").into()} else {limit_label}},
-        ],status,search_text:format!("{} {} {} {} {}",candidate.name,candidate.url,reported(&codes),reported(&formats),candidate.country.as_ref().map(|country|country.code.as_str()).unwrap_or_default()),
-    }),..Choice::new(&candidate.url,&candidate.name)}
+    let reported = |values: &Option<Vec<String>>| {
+        values
+            .as_ref()
+            .filter(|values| !values.is_empty())
+            .map(|values| values.join(", "))
+            .unwrap_or_else(|| locale.text("public_not_reported").into())
+    };
+    let limit = candidate.character_limit.filter(|value| *value >= -1);
+    let limit_label = if limit == Some(-1) {
+        locale.text("unlimited").to_string()
+    } else {
+        locale.text("public_chars").replace(
+            "{count}",
+            &limit
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "—".into()),
+        )
+    };
+    let status = match probe {
+        None => ChoiceStatus {
+            label: locale.text("remote_checking").into(),
+            title: locale.text("public_ping").into(),
+            tone: "checking",
+        },
+        Some(ProbeOutcome::Online(ms)) => ChoiceStatus {
+            label: format!("{} · {ms} ms", locale.text("remote_online")),
+            title: locale.text("public_ping").into(),
+            tone: "online",
+        },
+        Some(ProbeOutcome::Http(code)) => ChoiceStatus {
+            label: format!("HTTP {code}"),
+            title: format!("{} (HTTP {code})", locale.text("public_unreachable")),
+            tone: "offline",
+        },
+        Some(ProbeOutcome::Invalid) => ChoiceStatus {
+            label: locale.text("public_unverified").into(),
+            title: locale.text("public_invalid_health").into(),
+            tone: "offline",
+        },
+        Some(outcome) => ChoiceStatus {
+            label: locale.text("remote_offline").into(),
+            title: locale
+                .text(if *outcome == ProbeOutcome::Timeout {
+                    "public_timeout"
+                } else {
+                    "public_unreachable"
+                })
+                .into(),
+            tone: "offline",
+        },
+    };
+    let title = candidate
+        .checked_at
+        .as_ref()
+        .map(|time| {
+            format!(
+                "{}\n{}",
+                candidate.url,
+                locale.text("public_checked_at").replace("{time}", time)
+            )
+        })
+        .unwrap_or_else(|| candidate.url.clone());
+    Choice {
+        details: Some(ChoiceDetails {
+            country_code: candidate
+                .country
+                .as_ref()
+                .map(|country| country.code.clone()),
+            title,
+            metadata: vec![
+                ChoiceFact {
+                    label: locale
+                        .text("public_languages")
+                        .replace("{count}", &count(&codes)),
+                    title: reported(&codes),
+                },
+                ChoiceFact {
+                    label: if candidate.files_translation == Some(false) {
+                        locale.text("public_files_disabled").into()
+                    } else {
+                        locale
+                            .text("public_files")
+                            .replace("{count}", &count(&formats))
+                    },
+                    title: if candidate.files_translation == Some(false) {
+                        locale.text("public_files_disabled").into()
+                    } else {
+                        reported(&formats)
+                    },
+                },
+                ChoiceFact {
+                    label: limit_label.clone(),
+                    title: if limit.is_none() {
+                        locale.text("public_not_reported").into()
+                    } else {
+                        limit_label
+                    },
+                },
+            ],
+            status,
+            search_text: format!(
+                "{} {} {} {} {}",
+                candidate.name,
+                candidate.url,
+                reported(&codes),
+                reported(&formats),
+                candidate
+                    .country
+                    .as_ref()
+                    .map(|country| country.code.as_str())
+                    .unwrap_or_default()
+            ),
+        }),
+        ..Choice::new(&candidate.url, &candidate.name)
+    }
 }
 
 #[component]
@@ -1058,7 +1186,7 @@ fn RemoveDialog() -> Element {
         }
     });
     // Keep the description stable while the closed dialog finishes its exit.
-    let hosted = hosted().unwrap_or_else(|| last_hosted());
+    let hosted = hosted().unwrap_or(last_hosted());
     rsx! { DialogRoot { id: "remove-dialog".to_string(), class: "dialog-backdrop", inert: remove.is_none().then_some(""), open: Some(remove.is_some()), on_open_change: move |open: bool| { if !open { state.write().remove = None; } },
       DialogContent { class: "remove-dialog",
         DialogTitle { {locale.text("remove_title")} }

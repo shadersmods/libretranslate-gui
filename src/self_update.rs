@@ -412,7 +412,12 @@ fn extract(
             if entry.is_dir() {
                 continue;
             }
-            let name = PathBuf::from(entry.name());
+            let name = PathBuf::from(
+                entry
+                    .name()
+                    .context("Invalid update ZIP filename")?
+                    .as_ref(),
+            );
             let size = entry.size();
             write_entry(&name, size, &mut entry)?;
         }
@@ -1420,5 +1425,116 @@ mod tests {
             assert!(extract(&archive, &out, "bundle", true).is_err(), "{name}");
             assert!(!directory.path().join("data/instances.json").exists());
         }
+    }
+
+    fn zip_bundle(method: zip::CompressionMethod) -> Vec<u8> {
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        for (name, content) in [
+            (
+                format!("bundle/{}", executable_name()),
+                b"new executable".as_slice(),
+            ),
+            (
+                "bundle/assets/日本語.txt".into(),
+                b"translated asset".as_slice(),
+            ),
+        ] {
+            writer
+                .start_file(
+                    name,
+                    zip::write::SimpleFileOptions::default().compression_method(method),
+                )
+                .unwrap();
+            writer.write_all(content).unwrap();
+        }
+        writer.finish().unwrap().into_inner()
+    }
+
+    #[test]
+    fn extracts_stored_and_deflated_zip_bundles_with_unicode_filenames() {
+        for method in [
+            zip::CompressionMethod::Stored,
+            zip::CompressionMethod::Deflated,
+        ] {
+            let directory = tempfile::tempdir().unwrap();
+            let archive = directory.path().join("release.zip");
+            fs::write(&archive, zip_bundle(method)).unwrap();
+            let out = directory.path().join("out");
+            let files = extract(&archive, &out, "bundle", true).unwrap();
+            assert_eq!(files, [executable_name(), "assets/日本語.txt"]);
+            assert_eq!(
+                fs::read(out.join(executable_name())).unwrap(),
+                b"new executable"
+            );
+            assert_eq!(
+                fs::read(out.join("assets/日本語.txt")).unwrap(),
+                b"translated asset"
+            );
+        }
+    }
+
+    #[test]
+    fn extracts_legacy_cp437_zip_filenames() {
+        let directory = tempfile::tempdir().unwrap();
+        let archive = directory.path().join("release.zip");
+        let mut bytes = zip_bundle(zip::CompressionMethod::Stored);
+        let name = "bundle/assets/日本語.txt".as_bytes();
+        let offsets = bytes
+            .windows(name.len())
+            .enumerate()
+            .filter_map(|(index, part)| (part == name).then_some(index))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            offsets.len(),
+            2,
+            "both local and central filenames must be changed"
+        );
+        let legacy_name = b"bundle/assets/\x82-legacy!.txt";
+        assert_eq!(name.len(), legacy_name.len());
+        for offset in offsets {
+            bytes[offset..offset + name.len()].copy_from_slice(legacy_name);
+        }
+        fs::write(&archive, bytes).unwrap();
+        let out = directory.path().join("out");
+        let files = extract(&archive, &out, "bundle", true).unwrap();
+        assert_eq!(files, [executable_name(), "assets/é-legacy!.txt"]);
+        assert_eq!(
+            fs::read(out.join("assets/é-legacy!.txt")).unwrap(),
+            b"translated asset"
+        );
+    }
+
+    #[test]
+    fn rejects_zip_bundles_with_corrupted_file_content() {
+        let directory = tempfile::tempdir().unwrap();
+        let archive = directory.path().join("release.zip");
+        let mut bytes = zip_bundle(zip::CompressionMethod::Stored);
+        let payload = b"new executable";
+        let offset = bytes
+            .windows(payload.len())
+            .position(|part| part == payload)
+            .unwrap();
+        bytes[offset] ^= 1;
+        fs::write(&archive, bytes).unwrap();
+        assert!(extract(&archive, &directory.path().join("out"), "bundle", true).is_err());
+    }
+
+    #[test]
+    fn rejects_zip_symlinks_before_creating_the_link() {
+        let directory = tempfile::tempdir().unwrap();
+        let archive = directory.path().join("release.zip");
+        let mut writer = zip::ZipWriter::new(fs::File::create(&archive).unwrap());
+        writer
+            .add_symlink(
+                "bundle/assets/link",
+                "../../private",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .unwrap();
+        writer.finish().unwrap();
+        let out = directory.path().join("out");
+        let error = extract(&archive, &out, "bundle", true).unwrap_err();
+        assert!(error.to_string().contains("Symlink in update"), "{error:#}");
+        assert!(fs::symlink_metadata(out.join("assets/link")).is_err());
     }
 }

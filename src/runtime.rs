@@ -535,17 +535,7 @@ fn ensure_uv(root: &Path, cancel: &AtomicBool, log: &Logger) -> Result<PathBuf> 
         let name = if cfg!(windows) { "uv.exe" } else { "uv" };
         let mut executable = Vec::new();
         if cfg!(windows) {
-            let mut zip = zip::ZipArchive::new(std::io::Cursor::new(archive))?;
-            for index in 0..zip.len() {
-                let entry = zip.by_index(index)?;
-                if Path::new(entry.name())
-                    .file_name()
-                    .is_some_and(|n| n == name)
-                {
-                    entry.take(100 * 1024 * 1024).read_to_end(&mut executable)?;
-                    break;
-                }
-            }
+            executable = uv_zip_executable(&archive)?;
         } else {
             let mut tar = tar::Archive::new(flate2::read::GzDecoder::new(&archive[..]));
             for entry in tar.entries()? {
@@ -581,6 +571,27 @@ fn ensure_uv(root: &Path, cancel: &AtomicBool, log: &Logger) -> Result<PathBuf> 
     };
     log(ModelDownload::runtime(&name, downloaded.get(), total.get(), phase).message());
     result
+}
+
+fn uv_zip_executable(archive: &[u8]) -> Result<Vec<u8>> {
+    let mut zip = zip::ZipArchive::new(std::io::Cursor::new(archive))?;
+    let mut executable = Vec::new();
+    for index in 0..zip.len() {
+        let entry = zip.by_index(index)?;
+        if Path::new(
+            entry
+                .name()
+                .context("Invalid runtime ZIP filename")?
+                .as_ref(),
+        )
+        .file_name()
+        .is_some_and(|name| name == "uv.exe")
+        {
+            entry.take(100 * 1024 * 1024).read_to_end(&mut executable)?;
+            break;
+        }
+    }
+    Ok(executable)
 }
 
 fn verify_checksum(bytes: &[u8], checksum: &str) -> Result<()> {
@@ -991,6 +1002,54 @@ pub fn capture(cmd: &mut Command, timeout: Duration) -> Result<(bool, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn windows_uv_zip_reads_nested_executable_with_stored_and_deflated_entries() {
+        for method in [
+            zip::CompressionMethod::Stored,
+            zip::CompressionMethod::Deflated,
+        ] {
+            let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+            for (name, data) in [
+                ("README.txt", b"not the executable".as_slice()),
+                ("uv-windows/uv.exe", b"runtime executable".as_slice()),
+            ] {
+                writer
+                    .start_file(
+                        name,
+                        zip::write::SimpleFileOptions::default().compression_method(method),
+                    )
+                    .unwrap();
+                writer.write_all(data).unwrap();
+            }
+            let archive = writer.finish().unwrap().into_inner();
+            assert_eq!(uv_zip_executable(&archive).unwrap(), b"runtime executable");
+            assert!(uv_zip_executable(&archive[..archive.len() / 2]).is_err());
+        }
+    }
+
+    #[test]
+    fn windows_uv_zip_rejects_corrupted_executable_content() {
+        let payload = b"unique runtime payload";
+        let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        writer
+            .start_file(
+                "uv.exe",
+                zip::write::SimpleFileOptions::default()
+                    .compression_method(zip::CompressionMethod::Stored),
+            )
+            .unwrap();
+        writer.write_all(payload).unwrap();
+        let mut archive = writer.finish().unwrap().into_inner();
+        let offset = archive
+            .windows(payload.len())
+            .position(|part| part == payload)
+            .unwrap();
+        archive[offset] ^= 1;
+        assert!(uv_zip_executable(&archive).is_err());
+    }
+
     #[test]
     fn runtime_archive_progress_reports_measured_bytes_with_and_without_content_length() {
         for known_size in [true, false] {
