@@ -873,19 +873,31 @@ fn install(job: &Job) -> Result<()> {
 fn install_msi(job: &Job) -> Result<()> {
     #[cfg(windows)]
     {
+        use std::os::windows::{ffi::OsStrExt, process::CommandExt};
+
         let package = job.staging.join("release.msi");
         ensure!(
             storage::same_path(&dunce::canonicalize(&package)?, &package)
                 && fs::metadata(&package)?.is_file(),
             "Invalid staged installer"
         );
+        let directory = job.root.as_os_str();
+        ensure!(
+            !directory.encode_wide().any(|unit| unit == u16::from(b'"')),
+            "Invalid installer directory"
+        );
+        // MSI parses PROPERTY="value", while arg() would quote the entire
+        // INSTALLFOLDER=value token when the path contains spaces.
+        let mut install_folder = std::ffi::OsString::from("INSTALLFOLDER=\"");
+        install_folder.push(directory);
+        install_folder.push("\"");
         let windows = std::env::var_os("SystemRoot").context("Windows directory is unavailable")?;
         let status =
             std::process::Command::new(PathBuf::from(windows).join("System32/msiexec.exe"))
                 .arg("/i")
                 .arg(package)
                 .args(["/passive", "/norestart", "REBOOT=ReallySuppress"])
-                .arg(format!("INSTALLFOLDER={}", job.root.display()))
+                .raw_arg(install_folder)
                 .arg("/L*v")
                 .arg(job.staging.join("installer.log"))
                 .status()?;
@@ -1026,6 +1038,30 @@ pub fn previous_failure() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "requires the disposable MSI products created by tests/windows_installer.py --smoke"]
+    fn msi_update_installs_into_paths_with_spaces() {
+        let job_file = std::env::var_os("LIBRETRANSLATE_GUI_TEST_MSI_JOB")
+            .map(PathBuf::from)
+            .expect("Missing disposable installer job");
+        let job: Job = serde_json::from_slice(&fs::read(&job_file).unwrap()).unwrap();
+        let fixtures =
+            dunce::canonicalize(Path::new(env!("CARGO_MANIFEST_DIR")).join(".runtime-test"))
+                .unwrap();
+        assert!(
+            dunce::canonicalize(&job.root)
+                .unwrap()
+                .starts_with(&fixtures)
+        );
+        assert_eq!(job_file, job.staging.join("job.json"));
+        assert!(job.root.as_os_str().to_string_lossy().contains(' '));
+        assert!(job.msi);
+        install(&job).unwrap();
+        assert!(job.staging.join("installer.log").is_file());
+    }
+
     fn tracked_job(root: &Path, created: u64, version: &str) -> Job {
         let mut job = job(root, vec![executable_name()]);
         let stage = job

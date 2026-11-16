@@ -1,5 +1,6 @@
 """Installer authoring regressions; --smoke also installs, upgrades and uninstalls on Windows."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -72,49 +73,72 @@ def smoke():
     identity = 'smoke-' + str(uuid.uuid4())
     work = ROOT / '.runtime-test' / identity
     work.mkdir(parents=True)
-    install = work / 'installed'
+    install = work / 'Installed apps' / 'LibreTranslate GUI'
     user_data = work / 'user-data'
     user_data.mkdir()
     (user_data / 'instances.json').write_text('keep my instances')
     product_name = 'LibreTranslate GUI Test ' + identity[-12:]
     installer_command = Path(os.environ['SystemRoot']) / 'System32/msiexec.exe'
 
-    def run(*arguments, log):
-        result = subprocess.run([str(installer_command), *map(str, arguments), '/qn', '/norestart',
-                                 '/L*v', str(work / log)], timeout=180)
+    def run(*arguments, log, install_folder=None):
+        command = subprocess.list2cmdline([str(installer_command), *map(str, arguments), '/qn',
+                                          '/norestart', '/L*v', str(work / log)])
+        if install_folder is not None:
+            # MSI quotes property values, unlike the CRT's whole-argument quoting.
+            command += ' INSTALLFOLDER="' + str(install_folder) + '"'
+        result = subprocess.run(command, timeout=180)
         if result.returncode not in (0, 3010):
             raise AssertionError(f'Windows Installer returned {result.returncode}; see {work / log}')
 
-    installed_version = None
+    installers = {}
     try:
-        installers = {}
-        for version, asset in [('0.2.8', 'old.css'), ('0.2.9', 'new.css')]:
+        for version, asset in [('0.2.9', 'old.css'), ('0.2.10', 'new.css')]:
             stage = work / version / 'stage'
             fixture(stage, asset)
             installer = msi.build(ROOT, stage, version=version, identity=identity,
                                   product_name=product_name, work=work / version / 'wix')
             installers[version] = installer
-            run('/i', installer, 'INSTALLFOLDER=' + str(install), log=version + '-install.log')
-            installed_version = version
+            if version == '0.2.9':
+                run('/i', installer, log=version + '-install.log', install_folder=install)
+            else:
+                staging = install / '.updates' / str(uuid.uuid4())
+                staging.mkdir(parents=True)
+                (staging / 'release.msi').write_bytes(installer.read_bytes())
+                job = staging / 'job.json'
+                job.write_text(json.dumps({
+                    'root': str(install), 'staging': str(staging),
+                    'executable': 'libretranslate-gui.exe', 'parent': 0,
+                    'version': 'v' + version, 'files': [], 'msi': True,
+                }), encoding='utf-8')
+                environment = dict(os.environ, LIBRETRANSLATE_GUI_TEST_MSI_JOB=str(job))
+                subprocess.run([
+                    'cargo', 'test', '--locked',
+                    'self_update::tests::msi_update_installs_into_paths_with_spaces',
+                    '--', '--ignored', '--exact', '--nocapture',
+                ], env=environment, check=True, timeout=300)
             assert (install / 'assets' / asset).is_file()
             assert (install / msi.MARKER).read_text() == msi.MARKER_CONTENT
             assert (install / 'libretranslate-gui.exe').is_file()
             shortcut = Path(os.environ['APPDATA']) / 'Microsoft/Windows/Start Menu/Programs' / (product_name + '.lnk')
             assert shortcut.is_file(), 'Missing Start menu shortcut'
-            if version == '0.2.8':
+            if version == '0.2.9':
                 (install / 'personal.txt').write_text('keep an unrelated file')
             else:
                 assert not (install / 'assets/old.css').exists(), 'Upgrade left an obsolete hashed asset'
         # An older installer must leave the newer product and its files intact.
-        old = installers['0.2.8']
+        old = installers['0.2.9']
         result = subprocess.run([str(installer_command), '/i', str(old), '/qn', '/norestart',
                                  '/L*v', str(work / 'downgrade.log')], timeout=180)
         assert result.returncode == 1603, f'Downgrade was not blocked: {result.returncode}'
         assert (install / 'assets/new.css').is_file()
     finally:
-        if installed_version:
-            product = msi.guid(identity + ':x64:product:' + installed_version)
-            run('/x', '{' + product + '}', log='uninstall.log')
+        for version in reversed(installers):
+            product = msi.guid(identity + ':x64:product:' + version)
+            result = subprocess.run([
+                str(installer_command), '/x', '{' + product + '}', '/qn', '/norestart',
+                '/L*v', str(work / (version + '-uninstall.log')),
+            ], timeout=180)
+            assert result.returncode in (0, 1605, 3010), f'Test product cleanup failed: {result.returncode}'
     assert not (install / 'libretranslate-gui.exe').exists()
     assert not shortcut.exists()
     assert (install / 'personal.txt').read_text() == 'keep an unrelated file'
