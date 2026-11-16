@@ -18,7 +18,7 @@ Word counting uses [unicode-segmentation](https://github.com/unicode-rs/unicode-
 
 # Flag icons
 
-Country and regional SVG files in `assets/flags/` come from [lipis/flag-icons](https://github.com/lipis/flag-icons), pinned to revision `ac7e0eb3259eb62aa6100c435607e2fe03896a97`. Copyright Lipis. MIT license included in `licenses/flag-icons-MIT.txt`. The Esperanto flag (`eo.svg`) is an app-authored addition. Flags are visual aids alongside explicit language names and codes.
+Country and regional SVG files in `assets/countries/` come from [lipis/flag-icons](https://github.com/lipis/flag-icons), pinned to revision `ac7e0eb3259eb62aa6100c435607e2fe03896a97`. Copyright Lipis. MIT license included in `licenses/flag-icons-MIT.txt`. The Esperanto flag (`eo.svg`) is an app-authored addition. Flags are visual aids alongside explicit language names and codes.
 
 # Windows installer
 

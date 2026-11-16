@@ -265,6 +265,7 @@ fn RailInstance(view: crate::manager::View, selected: bool) -> Element {
     let locale = s.locale;
     let id = view.instance.id;
     let name = view.instance.name.clone();
+    let (type_icon, type_label) = type_identity(view.instance.kind);
     let tooltip_id = use_hook(|| format!("instance-preview-{}", Uuid::new_v4()));
     let anchor_id = tooltip_id.clone();
     let mut active = use_context::<crate::components::TooltipController>().0;
@@ -277,17 +278,20 @@ fn RailInstance(view: crate::manager::View, selected: bool) -> Element {
             Button {class:if selected {"rail-instance selected"}else{"rail-instance"},aria_label:name.clone(),aria_describedby:tooltip_id.clone(),"data-instance-preview":tooltip_id.clone(),onclick:move|_|state.write().select(id),
                 onfocus:move |_|active.set(Some(focus_id.clone())),
                 onblur:move |_|crate::components::dismiss_tooltip(active,&blur_id),
-                span {class:"instance-avatar",InstanceIcon {languages:view.instance.languages.clone()} span {class:"status-dot {status_class(view.status)}"}}
-                span {class:"rail-label rail-instance-details",strong {"{name}"} span {{locale.status(view.status)} " · :{view.instance.port}"}}
+                span {class:"instance-avatar",InstanceIcon {languages:s.avatar_languages(&view.instance)} span {class:"status-dot {status_class(view.status)}"}}
+                span {class:"rail-label rail-instance-details",strong {"{name}"} span {{locale.status(view.status)} if !view.instance.is_remote() {" · :{view.instance.port}"}}}
             }
         }
         tooltip::TooltipContent {id:tooltip_id,class:"app-tooltip instance-tooltip",side:dioxus_primitives::ContentSide::Right,
             div {onmounted:move |_|crate::components::position_tooltip(anchor_id.clone(),Some(format!("[data-instance-preview=\"{anchor_id}\"]")),active),
-                div {class:"preview-heading",InstanceIcon {languages:view.instance.languages.clone()} strong {"{name}"}}
+                div {class:"preview-heading",InstanceIcon {languages:s.avatar_languages(&view.instance)} strong {"{name}"}}
                 code {class:"preview-endpoint","{view.instance.url()}"}
-                div {class:"card-languages",for code in view.instance.languages.split(',').take(6) {span {class:"language-chip",LanguageFlag{code:code.to_string()} "{code}"}} if view.instance.languages.split(',').count()>6 {span {class:"language-chip","+{view.instance.languages.split(',').count()-6}"}}}
+                InstanceLanguageBadges {languages:s.avatar_languages(&view.instance), max_visible:3}
                 div {class:"preview-meta",span {class:"status-badge {status_class(view.status)}",span {class:"status-dot {status_class(view.status)}"} {locale.status(view.status)}}
-                    span {class:"card-device",Icon {kind:if view.instance.device==Device::Cuda {"cuda"}else{"cpu"}} {locale.text(if view.instance.device==Device::Cuda {"cuda"}else{"cpu"})}}
+                    div {class:"card-environment",
+                        span {class:"card-type",role:"img",aria_label:locale.text(type_label),title:locale.text(type_label),Icon {kind:type_icon}}
+                        if !view.instance.is_remote() {span {class:"card-device",Icon {kind:if view.instance.device==Device::Cuda {"cuda"}else{"cpu"}} {locale.text(if view.instance.device==Device::Cuda {"cuda"}else{"cpu"})}}}
+                    }
                 }
             }
         }
@@ -333,7 +337,9 @@ fn Instances() -> Element {
     }
     if s.adding {
         let instance = s.editor.clone().expect("Missing new-instance draft");
-        return rsx! { section { class: "add-page", h1 { {locale.text("add_title")} } InstanceForm { instance, creating: true, editable: !s.pending } } };
+        return rsx! { section { class: "add-page", h1 { {locale.text("add_title")} }
+            if instance.is_remote() {RemoteForm {instance,creating:true,editable:!s.pending}}else{InstanceForm { instance, creating: true, editable: !s.pending }}
+        } };
     }
     let view = s
         .views
@@ -343,7 +349,7 @@ fn Instances() -> Element {
     match view {
         // Keyed iteration remounts instance-local hooks when the selection changes.
         Some(view) => {
-            rsx! { for view in [view] { InstanceDetails { key:"{view.instance.id}", id: view.instance.id } } }
+            rsx! { for view in [view] { if view.instance.is_remote() { RemoteDetails {key:"{view.instance.id}",id:view.instance.id} }else{InstanceDetails { key:"{view.instance.id}", id: view.instance.id }} } }
         }
         None if !s.views.is_empty() => rsx! { Library {} },
         None => rsx! { section { class: "empty-state",
@@ -354,6 +360,273 @@ fn Instances() -> Element {
             p { class: "field-hint", {locale.text("setup_note")} }
         } },
     }
+}
+
+fn type_identity(kind: crate::model::InstanceKind) -> (&'static str, &'static str) {
+    match kind {
+        crate::model::InstanceKind::Local => ("computer", "local_instance"),
+        crate::model::InstanceKind::LibreTranslate => ("cloud", "hosted"),
+        crate::model::InstanceKind::Remote => ("server", "remote_server"),
+    }
+}
+
+#[component]
+fn InstanceTypeBadge(kind: crate::model::InstanceKind) -> Element {
+    let locale = use_context::<Signal<AppState>>().read().locale;
+    let (icon, label) = type_identity(kind);
+    rsx! {span {class:"instance-kind", Icon {kind:icon} {locale.text(label)}}}
+}
+
+#[component]
+fn InstanceTypePicker(id: Uuid, kind: crate::model::InstanceKind, disabled: bool) -> Element {
+    let mut state = use_context::<Signal<AppState>>();
+    let locale = state.read().locale;
+    rsx! {div {class:"field",label {r#for:"instance-kind",{locale.text("instance_type")}}
+        Dropdown {id:"instance-kind",label:locale.text("instance_type"),value:match kind {crate::model::InstanceKind::Local=>"local",crate::model::InstanceKind::LibreTranslate=>"cloud",crate::model::InstanceKind::Remote=>"remote"},choices:vec![Choice{icon:Some("computer".into()),..Choice::new("local",locale.text("local_instance"))},Choice{icon:Some("cloud".into()),..Choice::new("cloud","LibreTranslate.com")},Choice{icon:Some("server".into()),..Choice::new("remote",locale.text("remote_server"))}],disabled,
+            onchange:move |value:String|state.write().edit(id,|draft|{let previous_id=draft.id;let port=draft.port;*draft=match value.as_str(){"cloud"=>Instance::hosted(),"remote"=>Instance{name:locale.text("remote_server").into(),..Instance::remote()},_=>Instance{name:locale.text("new_name").into(),..Instance::default()}};draft.id=previous_id;draft.port=port;})}
+    }}
+}
+
+#[component]
+fn RemoteDetails(id: Uuid) -> Element {
+    let mut tab = use_signal(|| "translator".to_string());
+    let mut state = use_context::<Signal<AppState>>();
+    let s = state.read();
+    let locale = s.locale;
+    let Some(view) = s.views.iter().find(|view| view.instance.id == id).cloned() else {
+        return rsx! {};
+    };
+    let draft = s
+        .editor
+        .as_ref()
+        .filter(|instance| instance.id == id)
+        .cloned()
+        .unwrap_or_else(|| view.instance.clone());
+    rsx! {section {class:"instance-details",
+        header {class:"instance-header",
+            div {class:"instance-identity",
+                div {class:"instance-heading-text",h1 {"{view.instance.name}"} span {class:"status-badge {status_class(view.status)}",span {class:"status-dot {status_class(view.status)}"}{locale.status(view.status)}}}
+                div {class:"endpoint-row",code {"{view.instance.url()}"} Button {class:"endpoint-copy",aria_label:locale.text("copy_url"),title:locale.text("copy_url"),onclick:move |_|{let url=state.read().views.iter().find(|view|view.instance.id==id).map(|view|view.instance.url());if let Some(url)=url{state.write().copy(url);}},Icon {kind:"copy"}} InstanceTypeBadge {kind:view.instance.kind}}
+            }
+            div {class:"instance-tools",Button {class:"instance-refresh",disabled:s.pending,aria_label:locale.text("remote_check_now"),title:locale.text("remote_check_now"),onclick:move |_|state.write().send(Action::CheckConnection(id)),Icon {kind:"refresh"}} Button {class:"delete-instance",disabled:s.pending,aria_label:locale.text("remove_instance"),title:locale.text("remove_instance"),onclick:move |_|state.write().remove=Some(id),Icon {kind:"trash"}}}
+        }
+        p {class:"field-hint",{locale.text("remote_privacy").replace("{url}",&view.instance.url())}}
+        Tabs {class:"workspace-tabs",value:Some(tab()),horizontal:true,on_value_change:move |value|tab.set(value),
+            TabList {class:"tab-list",
+                TabTrigger {class:"tab-trigger",index:0usize,value:"translator",id:"hosted-translator-tab",Icon {kind:"language"}{locale.text("translator")}}
+                TabTrigger {class:"tab-trigger",index:1usize,value:"configuration",id:"hosted-configuration-tab",Icon {kind:"options"}{locale.text("configuration")}}
+            }
+            TabContent {class:"tab-panel",index:0usize,value:"translator",aria_labelledby:"hosted-translator-tab",if tab()=="translator" {crate::translator::TranslatorPanel {key:"{id}",instance:view.instance.clone(),status:view.status}}}
+            TabContent {class:"tab-panel",index:1usize,value:"configuration",aria_labelledby:"hosted-configuration-tab",if tab()=="configuration" {RemoteForm {instance:draft,creating:false,editable:!s.pending||s.saving.is_some()}}}
+        }
+    }}
+}
+
+#[component]
+fn RemoteForm(instance: Instance, creating: bool, editable: bool) -> Element {
+    let mut state = use_context::<Signal<AppState>>();
+    let mut show_api_key = use_signal(|| false);
+    let s = state.read();
+    let locale = s.locale;
+    let id = instance.id;
+    let key_required = instance.is_hosted();
+    let key_label = if key_required {
+        "api_key"
+    } else {
+        "hosted_api_key"
+    };
+    let error = s.form_error(&instance);
+    let visible_error = error.filter(|key| {
+        !(creating && *key == "validation_remote_url" && instance.remote_url.trim().is_empty())
+    });
+    let candidate = instance.clone();
+    let key_test_instance = instance.clone();
+    let public_instance = instance.clone();
+    rsx! {form {class:"instance-form",onsubmit:move |event|{event.prevent_default();if creating {state.write().save_instance(candidate.clone());}},
+        fieldset {div {class:"form-grid",
+            div {class:if creating {"form-identity-row form-identity-creating"}else{"form-identity-row"},
+                if creating {InstanceTypePicker {id,kind:instance.kind,disabled:!editable}}
+                div {class:"field",label {r#for:"hosted-name",{locale.text("name")}} Input {id:"hosted-name",name:"name",disabled:!editable,value:instance.name,maxlength:"64",required:true,oninput:move |event:FormEvent|state.write().edit(id,|draft|draft.name=event.value())}}
+            }
+            if instance.kind == crate::model::InstanceKind::Remote {
+                if creating {PublicInstancePicker {instance:public_instance,editable}}
+                div {class:"field field-wide",label {r#for:"remote-url",{locale.text("remote_url")}} Input {id:"remote-url",name:"url",r#type:"url",dir:"ltr",disabled:!editable,value:instance.remote_url,required:true,placeholder:"https://translate.example.com",aria_describedby:"remote-url-hint",oninput:move |event:FormEvent|state.write().edit(id,|draft|draft.remote_url=event.value())}
+                    p {id:"remote-url-hint",class:"field-hint",{locale.text("remote_url_hint")}}
+                }
+            }
+            div {class:"field field-wide",
+                div {class:"api-key-heading",label {r#for:"hosted-api-key",{locale.text(key_label)}}
+                    if instance.kind == crate::model::InstanceKind::LibreTranslate {Button {r#type:"button",class:"text-button",onclick:move |_|{let _=webbrowser::open("https://portal.libretranslate.com/");},Icon {kind:"external"}{locale.text("hosted_get_key")}}}
+                }
+                div {class:if key_required {"api-key-controls"}else{"api-key-controls single"},
+                    div {class:"api-key-input",
+                        Input {id:"hosted-api-key",name:"api_key",r#type:if show_api_key() {"text"}else{"password"},autocomplete:"off",dir:"ltr",disabled:!editable,required:key_required,value:instance.server.api_key,maxlength:"512",oninput:move |event:FormEvent|state.write().edit(id,|draft|draft.server.api_key=event.value())}
+                        Button {r#type:"button",class:"api-key-visibility",disabled:!editable,aria_label:locale.text(if show_api_key() {"hide_api_key"}else{"show_api_key"}),title:locale.text(if show_api_key() {"hide_api_key"}else{"show_api_key"}),aria_pressed:show_api_key(),aria_controls:"hosted-api-key",onclick:move |_|show_api_key.toggle(),
+                            Icon {kind:if show_api_key() {"eye-off"}else{"eye"}}
+                        }
+                    }
+                    if key_required {HostedApiKeyTest {instance:key_test_instance,editable}}
+                }
+            }
+            div {class:"health-settings-row",
+                div {class:"field",label {r#for:"health-interval",{locale.text("health_interval")}} Input {id:"health-interval",r#type:"number",min:"5",max:"3600",required:true,disabled:!editable,value:"{instance.health.interval_secs}",oninput:move |event:FormEvent|state.write().edit(id,|draft|draft.health.interval_secs=event.value().parse().unwrap_or_default())}}
+                div {class:"field",label {r#for:"health-timeout",{locale.text("health_timeout")}} Input {id:"health-timeout",r#type:"number",min:"1",max:"60",required:true,disabled:!editable,value:"{instance.health.timeout_secs}",oninput:move |event:FormEvent|state.write().edit(id,|draft|draft.health.timeout_secs=event.value().parse().unwrap_or_default())}}
+                div {class:"field",label {r#for:"health-failures",{locale.text("health_failures")}} Input {id:"health-failures",r#type:"number",min:"1",max:"10",required:true,disabled:!editable,value:"{instance.health.failure_threshold}",oninput:move |event:FormEvent|state.write().edit(id,|draft|draft.health.failure_threshold=event.value().parse().unwrap_or_default())}}
+            }
+        }}
+        if let Some(key)=visible_error {p {class:"field-error",role:"status",{locale.text(key)}}}
+        if creating {div {class:"form-actions",
+            Button {r#type:"submit",class:"primary",disabled:!editable||error.is_some(),{locale.text("create_instance")}}
+            Button {r#type:"button",class:"secondary",onclick:move |_|{let mut s=state.write();s.adding=false;s.editor=None;},{locale.text("cancel")}}
+        }}else if error.is_none(){if let Some(status)=s.autosave_status(id){p {class:"autosave-status",role:"status",{locale.text(status)}}}}
+    }}
+}
+
+#[component]
+fn PublicInstancePicker(instance: ReadSignal<Instance>, editable: bool) -> Element {
+    let mut state = use_context::<Signal<AppState>>();
+    let locale = state.read().locale;
+    let mut refresh = use_signal(|| 0u32);
+    let mut result = use_signal(|| None::<Result<crate::public_instances::Catalog, ()>>);
+    let mut probes = use_signal(std::collections::BTreeMap::<String, crate::public_instances::ProbeOutcome>::new);
+    use_resource(move || {
+        let _ = refresh();
+        async move {
+            result.set(None);
+            probes.write().clear();
+            let reply = tokio::task::spawn_blocking(crate::public_instances::fetch).await;
+            match reply {
+                Ok(Ok(catalog)) => {
+                    let candidates = catalog.instances.clone();
+                    result.set(Some(Ok(catalog)));
+                    crate::public_instances::probe_all(candidates, move |url, outcome| {
+                        probes.write().insert(url, outcome);
+                    }).await;
+                }
+                _ => result.set(Some(Err(()))),
+            }
+        }
+    });
+    let response = result.read().clone();
+    let loading = response.is_none();
+    let failed = matches!(response, Some(Err(_)));
+    let entries = response.and_then(Result::ok).map(|catalog| catalog.instances).unwrap_or_default();
+    let draft = instance();
+    let id = draft.id;
+    let value = entries.iter().find(|item| item.url == draft.remote_url.trim().trim_end_matches('/'))
+        .map(|item| item.url.clone()).unwrap_or_default();
+    let mut choices = vec![Choice::new("", locale.text("public_instances_manual"))];
+    choices.extend(entries.iter().map(|item| public_instance_choice(item, probes.read().get(&item.url), locale)));
+    let completed = probes.read().len();
+    let total = entries.len();
+    let hint = if loading {"public_instances_loading"} else if failed {"public_instances_failed"}
+        else if entries.is_empty() {"public_instances_empty"} else if completed < total {"public_probing"} else {"public_complete"};
+    let hint = locale.text(hint).replace("{done}", &completed.to_string()).replace("{total}", &total.to_string());
+    rsx! {div {class:"field field-wide public-instances-field",
+        label {r#for:"public-instances",{locale.text("public_instances")}}
+        div {class:"public-instance-controls",
+            Dropdown {id:"public-instances",label:locale.text("public_instances"),value,choices,described_by:"public-instances-hint",disabled:!editable || loading || entries.is_empty(),
+                onchange:move |url:String| {
+                    state.write().edit(id, |draft| {
+                        let previous_name = entries.iter().find(|item| item.url == draft.remote_url).map(|item| item.name.as_str());
+                        if let Some(candidate) = entries.iter().find(|item| item.url == url) {
+                            candidate.apply(draft, locale.text("remote_server"), previous_name);
+                        } else if url.is_empty() {
+                            if previous_name.is_some_and(|name| name.chars().take(64).eq(draft.name.chars())) {draft.name = locale.text("remote_server").into();}
+                            draft.remote_url.clear();
+                            draft.server.api_key.clear();
+                        }
+                    });
+                }
+            }
+            Button {r#type:"button",class:"secondary tool-button",disabled:!editable || loading,
+                title:locale.text("public_instances_reload"),aria_label:locale.text("public_instances_reload"),
+                onclick:move |_|refresh += 1,
+                if loading {span {class:"spinner",aria_hidden:"true"}} else {Icon {kind:"refresh"}}
+            }
+        }
+        p {id:"public-instances-hint",class:"field-hint",role:"status",aria_live:if completed>0 && completed<total {"off"} else {"polite"},"{hint}"}
+        if draft.remote_url.starts_with("http://") {
+            p {class:"field-hint",{locale.text("public_instances_http")}}
+        }
+    }}
+}
+
+fn public_instance_choice(candidate: &crate::public_instances::Candidate, probe: Option<&crate::public_instances::ProbeOutcome>, locale: Locale) -> Choice {
+    use crate::components::{ChoiceDetails, ChoiceFact, ChoiceStatus};
+    use crate::public_instances::ProbeOutcome;
+    let codes = candidate.language_codes();
+    let formats = candidate.file_formats();
+    let count = |values: &Option<Vec<String>>| values.as_ref().map(|values| values.len().to_string()).unwrap_or_else(|| "—".into());
+    let reported = |values: &Option<Vec<String>>| values.as_ref().filter(|values| !values.is_empty())
+        .map(|values| values.join(", ")).unwrap_or_else(|| locale.text("public_not_reported").into());
+    let limit = candidate.character_limit.filter(|value| *value >= -1);
+    let limit_label = if limit == Some(-1) {locale.text("unlimited").to_string()}
+        else {locale.text("public_chars").replace("{count}", &limit.map(|value| value.to_string()).unwrap_or_else(|| "—".into()))};
+    let status = match probe {
+        None => ChoiceStatus {label:locale.text("remote_checking").into(),title:locale.text("public_ping").into(),tone:"checking"},
+        Some(ProbeOutcome::Online(ms)) => ChoiceStatus {label:format!("{} · {ms} ms",locale.text("remote_online")),title:locale.text("public_ping").into(),tone:"online"},
+        Some(ProbeOutcome::Http(code)) => ChoiceStatus {label:format!("HTTP {code}"),title:format!("{} (HTTP {code})",locale.text("public_unreachable")),tone:"offline"},
+        Some(ProbeOutcome::Invalid) => ChoiceStatus {label:locale.text("public_unverified").into(),title:locale.text("public_invalid_health").into(),tone:"offline"},
+        Some(outcome) => ChoiceStatus {label:locale.text("remote_offline").into(),title:locale.text(if *outcome==ProbeOutcome::Timeout {"public_timeout"} else {"public_unreachable"}).into(),tone:"offline"},
+    };
+    let title = candidate.checked_at.as_ref().map(|time|format!("{}\n{}",candidate.url,locale.text("public_checked_at").replace("{time}",time))).unwrap_or_else(||candidate.url.clone());
+    Choice {details:Some(ChoiceDetails {
+        country_code:candidate.country.as_ref().map(|country|country.code.clone()),title,
+        metadata:vec![
+            ChoiceFact {label:locale.text("public_languages").replace("{count}",&count(&codes)),title:reported(&codes)},
+            ChoiceFact {label:if candidate.files_translation==Some(false) {locale.text("public_files_disabled").into()} else {locale.text("public_files").replace("{count}",&count(&formats))},title:if candidate.files_translation==Some(false) {locale.text("public_files_disabled").into()} else {reported(&formats)}},
+            ChoiceFact {label:limit_label.clone(),title:if limit.is_none() {locale.text("public_not_reported").into()} else {limit_label}},
+        ],status,search_text:format!("{} {} {} {} {}",candidate.name,candidate.url,reported(&codes),reported(&formats),candidate.country.as_ref().map(|country|country.code.as_str()).unwrap_or_default()),
+    }),..Choice::new(&candidate.url,&candidate.name)}
+}
+
+#[component]
+fn HostedApiKeyTest(instance: ReadSignal<Instance>, editable: bool) -> Element {
+    let state = use_context::<Signal<AppState>>();
+    let locale = state.read().locale;
+    let mut generation = use_signal(|| 0u64);
+    let mut pending = use_signal(|| false);
+    let mut result = use_signal(|| None::<Result<(), crate::translator::ApiError>>);
+    use_effect(move || {
+        let _ = instance();
+        let next = *generation.peek() + 1;
+        generation.set(next);
+        pending.set(false);
+        result.set(None);
+    });
+    rsx! {div {class:"api-key-test",
+        Button {r#type:"button",class:"secondary tool-button",disabled:!editable || pending() || instance().server.api_key.trim().is_empty(),onclick:move |_| {
+            if *pending.peek() || !editable || instance.peek().server.api_key.trim().is_empty() {return;}
+            let snapshot = instance();
+            let revision = *generation.peek();
+            pending.set(true);
+            result.set(None);
+            spawn(async move {
+                let reply = tokio::task::spawn_blocking(move || crate::translator::test_api_key(&snapshot))
+                    .await.unwrap_or(Err(crate::translator::ApiError::Connection));
+                if *generation.peek() == revision {
+                    pending.set(false);
+                    result.set(Some(reply));
+                }
+            });
+        },
+            if pending() {span {class:"spinner",aria_hidden:"true"}}
+            {locale.text(if pending() {"hosted_testing_key"} else {"hosted_test_key"})}
+        }
+        div {class:"api-key-test-result",role:"status",aria_live:"polite",
+            if let Some(reply) = result() {
+                span {class:if reply.is_ok() {"port-check available"}else{"port-check unavailable"},
+                    Icon {kind:if reply.is_ok() {"check"}else{"close"}}
+                    {locale.text(match reply {
+                        Ok(()) => "hosted_key_valid",
+                        Err(crate::translator::ApiError::Authorization) => "hosted_key_invalid",
+                        Err(error) => error.key(),
+                    })}
+                }
+            }
+        }
+    }}
 }
 
 #[component]
@@ -406,6 +679,7 @@ fn InstanceDetails(id: Uuid) -> Element {
                 div { class: "instance-identity",
                     div { class: "instance-heading-text", h1 { "{view.instance.name}" } span { class: "status-badge {status_class(view.status)}", span { class: "status-dot {status_class(view.status)}" } {locale.status(view.status)} } }
                     div { class: "endpoint-row", code { "{url}" } Button { class: "endpoint-copy", aria_label: locale.text("copy_url"), title: locale.text("copy_url"), onclick: move |_| state.write().copy(copy_url.clone()), Icon { kind: "copy" } }
+                        InstanceTypeBadge {kind:view.instance.kind}
                         if let Some(pid) = view.pid { span { class: "muted process-id", "PID {pid}" } }
                         if let Some(latest)=update_version {Button {class:"text-button runtime-update-link",onclick:move|_|tab.set("advanced".into()),Icon {kind:"download"} {locale.text("runtime_update_available").replace("{version}",&latest)}}}
                     }
@@ -472,12 +746,15 @@ fn InstanceForm(instance: Instance, creating: bool, editable: bool) -> Element {
         form { class: "instance-form", onsubmit: move |event| { event.prevent_default(); if creating { state.write().save_instance(candidate.clone()); } },
             fieldset {
                 div { class: "form-grid",
-                    div { class: "field field-wide field-name", label { r#for: "instance-name", {locale.text("name")} } Input { id: "instance-name", name: "name", disabled: !editable, value: instance.name, maxlength: "64", required: true, oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.name = event.value()) } }
+                    div {class:if creating {"form-identity-row form-identity-creating"}else{"form-identity-row"},
+                        if creating {InstanceTypePicker {id,kind:instance.kind,disabled:!editable}}
+                        div { class: "field field-name", label { r#for: "instance-name", {locale.text("name")} } Input { id: "instance-name", name: "name", disabled: !editable, value: instance.name, maxlength: "64", required: true, oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.name = event.value()) } }
+                    }
                     div { class: "field", label { r#for: "instance-port", {locale.text("port")} } Input { id: "instance-port", name: "port", disabled: !editable, r#type: "number", min: "1024", max: "65535", required: true, value: "{instance.port}", oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.port = event.value().parse().unwrap_or_default()) } PortStatus { id, port: instance.port, disabled: !editable } }
                     div { class: "field", label { r#for: "instance-threads", {locale.text("threads")} } Input { id: "instance-threads", name: "threads", disabled: !editable, r#type: "number", min: "1", max: "{thread_limit}", aria_describedby: "thread-limit", required: true, value: "{instance.threads}", oninput: move |event: FormEvent| state.write().edit(id, |draft| draft.threads = event.value().parse().unwrap_or_default()) } p { id: "thread-limit", class: "field-hint", "{thread_hint}" } }
                     div { class: "field field-languages", LanguageRepeater { id, languages: instance.languages, disabled: !editable } }
                     div { class: "field field-device", label { r#for: "instance-device", {locale.text("device")} }
-                        Dropdown { id: "instance-device", label: locale.text("device"), value: if instance.device == Device::Cuda { "cuda".to_string() } else { "cpu".to_string() }, choices: vec![Choice::new("cpu", locale.text("cpu")), Choice { icon: Some("cuda".into()), value: "cuda".into(), label: locale.text("cuda").into(), disabled: !available }], disabled: !editable, onchange: move |value: String| state.write().edit(id, |draft| draft.device = if value == "cuda" { Device::Cuda } else { Device::Cpu }) }
+                        Dropdown { id: "instance-device", label: locale.text("device"), value: if instance.device == Device::Cuda { "cuda".to_string() } else { "cpu".to_string() }, choices: vec![Choice::new("cpu", locale.text("cpu")), Choice { icon: Some("cuda".into()), value: "cuda".into(), label: locale.text("cuda").into(), disabled: !available, details: None }], disabled: !editable, onchange: move |value: String| state.write().edit(id, |draft| draft.device = if value == "cuda" { Device::Cuda } else { Device::Cpu }) }
                         GpuSummary {}
                     }
                     NumberSetting { id:"char-limit", label_key:"char_limit", value:instance.server.char_limit, disabled: !editable, onchange:move|value|state.write().edit(id,|draft|draft.server.char_limit=value) }
@@ -765,10 +1042,15 @@ fn RemoveDialog() -> Element {
     let mut state = use_context::<Signal<AppState>>();
     let locale = state.read().locale;
     let remove = state.read().remove;
+    let hosted = state
+        .read()
+        .views
+        .iter()
+        .any(|view| Some(view.instance.id) == remove && view.instance.is_remote());
     rsx! { DialogRoot { id: "remove-dialog".to_string(), class: "dialog-backdrop", open: Some(remove.is_some()), on_open_change: move |open: bool| { if !open { state.write().remove = None; } },
       DialogContent { class: "remove-dialog",
         DialogTitle { {locale.text("remove_title")} }
-        DialogDescription { {locale.text("remove_description")} }
+        DialogDescription { {locale.text(if hosted {"hosted_remove_description"}else{"remove_description"})} }
         div { class: "form-actions",
             Button { class: "secondary",  onclick: move |_| state.write().remove = None, {locale.text("keep_instance")} }
             Button { class: "danger", onclick: move |_| { if let Some(id) = remove { let mut s = state.write(); s.send(Action::Remove(id)); s.remove = None; s.logs.remove(&id); } }, {locale.text("remove_instance")} }
@@ -779,9 +1061,11 @@ fn RemoveDialog() -> Element {
 
 fn status_class(status: Status) -> &'static str {
     match status {
-        Status::Running => "running",
-        Status::Starting | Status::Installing | Status::UpdatingModels => "working",
-        Status::Failed | Status::Unresponsive => "failed",
+        Status::Running | Status::RemoteOnline => "running",
+        Status::Starting | Status::Installing | Status::UpdatingModels | Status::RemoteChecking => {
+            "working"
+        }
+        Status::Failed | Status::Unresponsive | Status::RemoteOffline => "failed",
         _ => "idle",
     }
 }
@@ -815,16 +1099,23 @@ fn Library() -> Element {
                     let copy_url = view.instance.url();
                     let card_url = copy_url.trim_start_matches("http://").to_owned();
                     let cuda_missing = view.instance.device == Device::Cuda && !s.gpu.as_ref().is_some_and(|gpu| gpu.available());
+                    let (type_icon, type_label) = type_identity(view.instance.kind);
                     rsx! { article { key: "{id}", class: "instance-card",
-                        div { class: "card-heading", Button { class: "card-open", aria_label: view.instance.name.clone(), title: view.instance.name.clone(), onclick: move |_| state.write().select(id), InstanceIcon {languages:view.instance.languages.clone()} h2 { "{view.instance.name}" } }
+                        div { class: "card-heading", Button { class: "card-open", aria_label: view.instance.name.clone(), title: view.instance.name.clone(), onclick: move |_| state.write().select(id), InstanceIcon {languages:s.avatar_languages(&view.instance)} h2 { "{view.instance.name}" } }
                             Button { class: "delete-instance", disabled: busy || s.pending, aria_label: format!("{}: {}", locale.text("remove_instance"), view.instance.name), title: locale.text("remove_instance"), onclick: move |_| state.write().remove = Some(id), Icon { kind: "trash" } }
                         }
                         div { class: "card-endpoint", code { "{card_url}" } Button { class: "endpoint-copy", aria_label: format!("{}: {}", locale.text("copy_url"), view.instance.name), title: locale.text("copy_url"), onclick: move |_| state.write().copy(copy_url.clone()), Icon { kind: "copy" } } }
-                        div { class: "card-languages", for code in view.instance.languages.split(',').take(6) { span { class: "language-chip", LanguageFlag { code: code } "{code}" } } }
-                        div { class: "card-meta", span { class: "status-badge {status_class(view.status)}", span { class: "status-dot {status_class(view.status)}" } {locale.status(view.status)} } span { class: "card-device", Icon { kind: if view.instance.device == Device::Cuda { "cuda" } else { "cpu" } } {locale.text(if view.instance.device == Device::Cuda { "cuda" } else { "cpu" })} } }
+                        InstanceLanguageBadges {languages:s.avatar_languages(&view.instance)}
+                        div { class: "card-meta", span { class: "status-badge {status_class(view.status)}", span { class: "status-dot {status_class(view.status)}" } {locale.status(view.status)} }
+                            div {class:"card-environment",
+                                Button {class:"card-type",r#type:"button",aria_label:locale.text(type_label),title:locale.text(type_label),Icon {kind:type_icon}}
+                                if !view.instance.is_remote() {span { class: "card-device", Icon { kind: if view.instance.device == Device::Cuda { "cuda" } else { "cpu" } } {locale.text(if view.instance.device == Device::Cuda { "cuda" } else { "cpu" })} }}
+                            }
+                        }
                         div { class: "card-actions",
                             Button { class: "secondary", onclick: move |_| state.write().select(id), Icon { kind: "options" } {locale.text("manage")} }
-                            if active { Button { class: "danger", disabled: s.pending, onclick: move |_| state.write().send(Action::Stop(id)), Icon { kind: "stop" } {locale.text("stop_short")} } }
+                            if view.instance.is_remote() {Button {class:"primary",onclick:move |_|state.write().select(id),Icon {kind:"language"}{locale.text("translator")}}}
+                            else if active { Button { class: "danger", disabled: s.pending, onclick: move |_| state.write().send(Action::Stop(id)), Icon { kind: "stop" } {locale.text("stop_short")} } }
                             else if ready { Button { class: "primary", disabled: s.pending || busy || cuda_missing || s.has_unsaved(id), onclick: move |_| state.write().send(Action::Start(id)), Icon { kind: "play" } {locale.text("start_short")} } }
                             else { Button { class: "primary", disabled: s.pending || busy || any_install || cuda_missing || s.has_unsaved(id), title: locale.text("install_runtime"), onclick: move |_| state.write().send(Action::Install(id)), Icon { kind: "download" } {locale.text("install_short")} } }
                         }
@@ -834,6 +1125,20 @@ fn Library() -> Element {
         }
         if !query.is_empty() && s.views.iter().all(|v| !v.instance.name.to_lowercase().contains(&query)) { p { class: "muted", {locale.text("no_results")} } }
     } }
+}
+
+#[component]
+fn InstanceLanguageBadges(languages: String, #[props(default = 8)] max_visible: usize) -> Element {
+    let codes: Vec<_> = languages
+        .split(',')
+        .filter(|code| !code.is_empty())
+        .collect();
+    rsx! {div {class:"card-languages",
+        for code in codes.iter().take(max_visible) {
+            span {class:"language-chip",LanguageFlag {code:*code} "{code}"}
+        }
+        if codes.len()>max_visible {span {class:"language-chip","+{codes.len()-max_visible}"}}
+    }}
 }
 
 #[derive(serde::Deserialize)]
@@ -869,7 +1174,7 @@ fn LanguageRepeater(id: Uuid, languages: String, disabled: bool) -> Element {
                     let mut choices = LANGUAGES.iter().map(|language| {
                         let key = format!("language_{}", language.code);
                         let name = locale.text(&key);
-                        Choice { icon: Some(language.code.clone()), value: language.code.clone(), label: format!("{} · {}", if name == "[missing translation]" { &language.name } else { name }, language.code), disabled: codes.contains(&language.code) && language.code != code }
+                        Choice { icon: Some(language.code.clone()), value: language.code.clone(), label: format!("{} · {}", if name == "[missing translation]" { &language.name } else { name }, language.code), disabled: codes.contains(&language.code) && language.code != code, details: None }
                     }).collect::<Vec<_>>();
                     if !choices.iter().any(|choice| choice.value == code) { choices.push(Choice::new(&code, &code)); }
                     rsx! { div { class: "language-row", key: "{index}",

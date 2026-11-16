@@ -46,8 +46,33 @@ async fn save_file_dialog(name: &str) -> Option<PathBuf> {
 #[derive(Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Formats {
+    #[serde(default = "files_enabled")]
     pub files_translation: bool,
+    #[serde(default)]
     pub supported_files_format: Vec<String>,
+    #[serde(default)]
+    pub char_limit: Option<i64>,
+    #[serde(default)]
+    pub key_required: bool,
+    #[serde(default)]
+    pub language: FrontendLanguages,
+}
+
+fn files_enabled() -> bool {
+    true
+}
+
+#[derive(Clone, Default, Deserialize)]
+pub struct FrontendLanguages {
+    #[serde(default)]
+    pub source: Option<FrontendLanguage>,
+    #[serde(default)]
+    pub target: Option<FrontendLanguage>,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct FrontendLanguage {
+    pub code: String,
 }
 pub fn formats(instance: &Instance) -> Result<Formats, ApiError> {
     translator::response(
@@ -56,6 +81,7 @@ pub fn formats(instance: &Instance) -> Result<Formats, ApiError> {
                 "{}/frontend/settings",
                 instance.url().trim_end_matches('/')
             ))
+            .timeout(std::time::Duration::from_secs(8))
             .send(),
     )
 }
@@ -137,6 +163,12 @@ impl Transfer {
     }
 }
 impl Draft {
+    pub fn endpoint_changed(&mut self) {
+        self.cancel();
+        self.generation = self.generation.wrapping_add(1);
+        self.result = None;
+        self.error = None;
+    }
     pub fn cancel(&self) {
         if let Some(transfer) = &self.transfer {
             transfer.cancel();
@@ -330,6 +362,9 @@ async fn translate_cancellable(
     directory: &Path,
     transfer: Arc<Transfer>,
 ) -> Result<OutputFile, ApiError> {
+    if instance.missing_hosted_api_key() {
+        return Err(ApiError::Authorization);
+    }
     tokio::select! {
         biased;
         _ = transfer.cancelled() => Err(ApiError::Cancelled),
@@ -421,7 +456,10 @@ async fn translate_async(
         .send()
         .await
         .map_err(request_error)?;
-    if let Some(error) = translator::status_error(response.status()) {
+    let status = response.status();
+    if status != reqwest::StatusCode::BAD_REQUEST
+        && let Some(error) = translator::status_error(status)
+    {
         return Err(error);
     }
     let mut json = Vec::new();
@@ -430,6 +468,9 @@ async fn translate_async(
             return Err(ApiError::Invalid);
         }
         json.extend_from_slice(&chunk);
+    }
+    if let Some(error) = translator::response_error(status, &json) {
+        return Err(error);
     }
     let reply: ResultFile = serde_json::from_slice(&json).map_err(|_| ApiError::Invalid)?;
     let url = download_url(instance, &reply.url)?;
@@ -515,7 +556,7 @@ pub fn FileTranslator(
         }
     });
     use_effect(move || {
-        if status() != Status::Running
+        if !status().can_translate()
             && let Some(draft) = state.peek().file_translations.get(&id)
         {
             draft.cancel();
@@ -524,9 +565,9 @@ pub fn FileTranslator(
     use_hook(move || {
         state.write().file_translations.entry(id).or_default();
     });
-    let formats = use_resource(move || {
+    let mut formats = use_resource(move || {
         let instance = instance();
-        let running = status() == Status::Running;
+        let running = status().can_translate();
         async move {
             if !running {
                 return Err(ApiError::Connection);
@@ -563,9 +604,13 @@ pub fn FileTranslator(
         .as_ref()
         .and_then(|result| result.as_ref().ok())
         .cloned();
-    let allowed = status() == Status::Running
+    let allowed = status().can_translate()
+        && !instance().missing_hosted_api_key()
+        && !formats.pending()
         && instance().server.file_translation
-        && info.as_ref().is_some_and(|info| info.files_translation);
+        && info
+            .as_ref()
+            .is_some_and(|info| info.files_translation && !info.supported_files_format.is_empty());
     let extensions = info
         .as_ref()
         .map(|info| {
@@ -590,7 +635,7 @@ pub fn FileTranslator(
     let dropped_extensions = extensions.clone();
     rsx! {section{class:"file-translator",
         if !instance().server.file_translation||info.as_ref().is_some_and(|info|!info.files_translation){p{class:"field-hint",{locale.text("translator_files_disabled")}}}
-        else if status()==Status::Running&&info.is_none(){p{class:"field-hint",{locale.text(if formats.pending(){"translator_loading"}else{"translator_unavailable"})}}}
+        else if status().can_translate()&&info.is_none(){p{class:"field-hint",{locale.text(if formats.pending(){"translator_loading"}else{"translator_unavailable"})}} if !formats.pending(){Button{class:"secondary",onclick:move |_|formats.restart(),{locale.text("rescan_gpu")}}}}
         div{class:"file-selection",role:"group",aria_label:locale.text("translator_files"),"data-dragging":dragging()&&can_choose,
             ondragover:move |event:DragEvent|{event.prevent_default();dragging.set(can_choose);},
             ondragleave:move |_|dragging.set(false),
@@ -626,7 +671,7 @@ pub fn FileTranslator(
                 let directory=state.peek().active_paths.as_ref().map(|paths|paths.cache.join("translations")).unwrap_or_else(||std::env::temp_dir().join("libretranslate-translations"));
                 let pid=state.peek().views.iter().find(|view|view.instance.id==id).and_then(|view|view.pid);
                 spawn_forever(async move{let reply=translate_cancellable(&instance,&path,&source,&target,&directory,transfer).await;
-                    let mut state=state.write();let current=state.views.iter().any(|view|view.instance==instance&&view.status==Status::Running&&view.pid==pid);
+                    let mut state=state.write();let current=state.views.iter().any(|view|view.instance==instance&&view.status.can_translate()&&view.pid==pid);
                     if let Some(draft)=state.file_translations.get_mut(&id){if revision==draft.generation&&current{match reply{Ok(file)=>draft.result=Some(file),Err(problem)=>draft.error=Some(problem.key())}}draft.pending=false;draft.transfer=None;}
                 });
             },if draft.pending{span{class:"spinner",aria_hidden:"true"}}else{Icon{kind:"language"}}{locale.text(if draft.pending{"translator_working"}else{"translator_translate_file"})}}
@@ -648,13 +693,49 @@ pub fn FileTranslator(
             else if total>0&&sent<total {locale.text("translator_upload_progress").replace("{sent}",&crate::models::format_bytes(sent)).replace("{total}",&crate::models::format_bytes(total))}
             else {locale.text("translator_working").into()}
         }}}
-        if let Some(key)=draft.error{p{class:"field-error",role:"status",{locale.text(key)}}}
+        if let Some(key)=draft.error{p{class:"field-error",role:"status",{locale.text(if instance().is_remote() && key == "translator_auth_error" {"hosted_auth_error"} else {key})}}}
     }}
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn hosted_file_translation_requires_a_key_before_reading_or_sending() {
+        let mut instance = Instance::hosted();
+        for key in ["", "  \t\n"] {
+            instance.server.api_key = key.into();
+            assert!(matches!(
+                translate_file(
+                    &instance,
+                    Path::new("missing.txt"),
+                    "en",
+                    "ro",
+                    Path::new("missing-cache")
+                ),
+                Err(ApiError::Authorization)
+            ));
+        }
+    }
+
+    #[test]
+    fn changing_endpoint_cancels_transfer_and_discards_output_but_preserves_selection() {
+        let transfer = Arc::new(Transfer::default());
+        let mut draft = Draft {
+            selected: Some(PathBuf::from("selected.txt")),
+            result: Some(OutputFile {
+                name: "old.txt".into(),
+                data: stored(b"old endpoint"),
+            }),
+            transfer: Some(transfer.clone()),
+            ..Default::default()
+        };
+        draft.endpoint_changed();
+        assert!(transfer.cancel.load(Ordering::Relaxed));
+        assert!(draft.result.is_none());
+        assert_eq!(draft.selected, Some(PathBuf::from("selected.txt")));
+        assert_eq!(draft.generation, 1);
+    }
     use std::{
         io::Write,
         net::{TcpListener, TcpStream},

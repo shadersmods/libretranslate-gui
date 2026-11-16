@@ -177,6 +177,9 @@ impl Locale {
             Stopped => "stopped",
             Starting => "starting",
             Running => "running",
+            RemoteChecking => "remote_checking",
+            RemoteOnline => "remote_online",
+            RemoteOffline => "remote_offline",
             Unresponsive => "unresponsive",
             Failed => "failed",
         })

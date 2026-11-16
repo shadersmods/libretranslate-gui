@@ -15,6 +15,7 @@ mod model_ui;
 mod models;
 mod network;
 mod paths;
+mod public_instances;
 mod releases;
 mod removals;
 mod runtime;

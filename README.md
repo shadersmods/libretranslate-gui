@@ -18,9 +18,9 @@
   <a href="https://github.com/shadersmods/libretranslate-gui/issues">Issues</a>
 </p>
 
-LibreTranslate GUI is a desktop manager for local [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) servers. Create an instance, choose its languages, and translate text or files from the app. It installs a private Python runtime and downloads the models you need.
+LibreTranslate GUI is a desktop manager for [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate). Translate text or files with LibreTranslate.com, a server on another machine, or a local instance. For local instances, it installs a private Python runtime and downloads the models you need.
 
-Translation runs on your computer and works offline once setup is complete. You don't need to install Docker or Python yourself.
+Local translation runs on your computer and works offline once setup is complete. You don't need to install Docker or Python yourself. Cloud and remote instances send translations to the selected server.
 
 <p align="center">
   <img src="docs/images/overview.png" alt="The instance library with generated language flag icons and separate server controls" width="1100">
@@ -29,6 +29,7 @@ Translation runs on your computer and works offline once setup is complete. You 
 ## What it does
 
 - **Separate instances.** Give each server its own port, languages, runtime version, and settings. Start and stop them from the sidebar. Each instance gets an icon made from its selected language flags.
+- **Cloud and remote servers.** Use the removable LibreTranslate.com instance or add your own server URL. Supported languages and file formats are discovered from the server. LibreTranslate.com requires an API key for translation. For self-hosted servers, the server decides whether a key is required.
 - **Text and file translation.** Translate as you type, detect the source language, or open a file and save the translated result. Drafts and file results stay available when you switch instances during a session.
 - **Model management.** See installed and available translation pairs, check download sizes, and update models. Downloads are validated before existing models are replaced. One previous version is retained per pair.
 - **CPU or CUDA.** Use the CPU by default, or select CUDA on supported NVIDIA hardware. Worker counts are configurable per instance.
@@ -50,11 +51,13 @@ Download your platform's package from [Releases](https://github.com/shadersmods/
 - **Linux:** Extract the `.tar.gz` into a writable folder and keep the executable beside `assets/`.
 
 1. Open **LibreTranslate GUI** and select **Add instance**.
-2. Set a name and port, choose at least two languages, then select **Create instance**.
+2. Choose **Local server**, set a name and port, choose at least two languages, then select **Create instance**.
 3. Select **Install runtime**. This installs the runtime and selected language models. Progress appears in Logs and the Tasks menu.
 4. Select **Start server**. When the status is **Running**, open **Translator** to translate text or files.
 
 Initial setup needs an internet connection and several GB of free space. Closing the app saves pending edits and stops its servers. A failed save restores the window so you can correct the problem and retry.
+
+For hosted translation, choose **LibreTranslate.com** in **Add instance** and enter an API key. Hosted instances are added manually. To connect to another server, choose **Remote server** in **Add instance**, then select from **Public instances** or enter its base URL; add a key if that server requires one. The public list comes from the [remote instance database](https://github.com/shadersmods/libretranslate-remote-database), and availability can change. No local runtime installation is needed. Removing a cloud or remote instance deletes its saved connection and key from the app; it can be added again later.
 
 | Platform | Desktop requirements |
 | --- | --- |
@@ -70,7 +73,7 @@ The Windows installer stores settings and `data/` in `%LOCALAPPDATA%\LibreTransl
 
 Each instance has its own runtime and models. **Options** lets you choose different folders for instance data, downloaded packages, and managed Python. Folder changes apply after restarting the app and do not move existing files. To reuse portable instances, close the portable app, choose its existing data folder in the installed app's **Options**, and restart. Keep that folder in place; Python environments can contain absolute paths.
 
-Text and files are sent to the selected local server. The app checks GitHub and PyPI for updates and contacts package and model hosts for downloads. LAN access is optional.
+Text and files are sent to the selected instance: the local server, LibreTranslate.com, or your configured remote URL. API keys are stored in the app's local configuration. The app checks GitHub and PyPI for updates and contacts package and model hosts for downloads. LAN access for local servers is optional.
 
 See the [user guide](docs/usage.md) for storage overrides, runtime upgrades, CUDA setup, and model recovery. Server format restrictions, request limits, and timeouts still apply to file translation.
 

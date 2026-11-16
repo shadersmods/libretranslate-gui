@@ -142,6 +142,21 @@ pub(crate) fn status_error(status: reqwest::StatusCode) -> Option<ApiError> {
         _ => Some(ApiError::Invalid),
     }
 }
+pub(crate) fn response_error(status: reqwest::StatusCode, body: &[u8]) -> Option<ApiError> {
+    // LibreTranslate uses HTTP 400 for missing/invalid API keys as well as for
+    // malformed requests. Classify its bounded JSON error without displaying
+    // server-controlled text (which could echo an API key or user input).
+    if status == reqwest::StatusCode::BAD_REQUEST
+        && let Ok(value) = serde_json::from_slice::<serde_json::Value>(body)
+        && let Some(message) = value.get("error").and_then(|value| value.as_str())
+    {
+        let message = message.to_ascii_lowercase();
+        if message.contains("api key") || message.contains("api_key") {
+            return Some(ApiError::Authorization);
+        }
+    }
+    status_error(status)
+}
 pub(crate) fn client() -> Result<reqwest::blocking::Client, ApiError> {
     static CLIENT: std::sync::OnceLock<Result<reqwest::blocking::Client, ApiError>> =
         std::sync::OnceLock::new();
@@ -178,7 +193,10 @@ pub(crate) fn response<T: serde::de::DeserializeOwned>(
             ApiError::Connection
         }
     })?;
-    if let Some(error) = status_error(response.status()) {
+    let status = response.status();
+    if status != reqwest::StatusCode::BAD_REQUEST
+        && let Some(error) = status_error(status)
+    {
         return Err(error);
     }
     let mut body = Vec::new();
@@ -188,6 +206,9 @@ pub(crate) fn response<T: serde::de::DeserializeOwned>(
         .map_err(body_error)?;
     if body.len() > 8 * 1024 * 1024 {
         return Err(ApiError::Invalid);
+    }
+    if let Some(error) = response_error(status, &body) {
+        return Err(error);
     }
     serde_json::from_slice(&body).map_err(|_| ApiError::Invalid)
 }
@@ -227,7 +248,33 @@ pub struct Detected {
     pub language: String,
 }
 pub fn translate(instance: &Instance, draft: &Draft) -> Result<Translation, ApiError> {
-    response(client()?.post(format!("{}/translate",instance.url().trim_end_matches('/'))).json(&serde_json::json!({
+    translate_with_timeout(instance, draft, Duration::from_secs(120))
+}
+
+pub fn test_api_key(instance: &Instance) -> Result<(), ApiError> {
+    if instance.server.api_key.trim().is_empty() {
+        return Err(ApiError::Authorization);
+    }
+    let mut instance = instance.clone();
+    instance.server.api_key = instance.server.api_key.trim().into();
+    let draft = Draft {
+        input: "hello".into(),
+        source: "en".into(),
+        target: "es".into(),
+        ..Default::default()
+    };
+    translate_with_timeout(&instance, &draft, Duration::from_secs(15)).map(|_| ())
+}
+
+fn translate_with_timeout(
+    instance: &Instance,
+    draft: &Draft,
+    timeout: Duration,
+) -> Result<Translation, ApiError> {
+    if instance.missing_hosted_api_key() {
+        return Err(ApiError::Authorization);
+    }
+    response(client()?.post(format!("{}/translate",instance.url().trim_end_matches('/'))).timeout(timeout).json(&serde_json::json!({
         "q":draft.input,"source":draft.source,"target":draft.target,"format":"text","api_key":instance.server.api_key
     })).send())
 }
@@ -251,6 +298,23 @@ fn choices(locale: Locale, languages: &[Language]) -> Vec<Choice> {
     choices
 }
 
+fn character_limit(
+    instance: &Instance,
+    settings: Option<&crate::translator_files::Formats>,
+) -> Option<u32> {
+    if !instance.is_remote() {
+        return instance.server.char_limit;
+    }
+    // The public settings endpoint reports the anonymous limit, not the API
+    // key's allowance. Let the service enforce the subscribed key's limits.
+    if !instance.server.api_key.is_empty() {
+        return None;
+    }
+    settings
+        .and_then(|settings| settings.char_limit)
+        .and_then(|limit| u32::try_from(limit).ok())
+}
+
 #[component]
 pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status>) -> Element {
     let mut state = use_context::<Signal<AppState>>();
@@ -261,9 +325,22 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
     });
     let mut mode = use_signal(|| "text".to_string());
     let mut composing = use_signal(|| false);
+    let mut settings = use_resource(move || {
+        let instance = instance();
+        let online = status().can_translate();
+        async move {
+            if !instance.is_remote() || !online {
+                return None;
+            }
+            tokio::task::spawn_blocking(move || crate::translator_files::formats(&instance))
+                .await
+                .ok()
+                .and_then(Result::ok)
+        }
+    });
     let mut languages = use_resource(move || {
         let instance = instance();
-        let running = status() == Status::Running;
+        let running = status().can_translate();
         async move {
             if !running {
                 return Err(ApiError::Connection);
@@ -276,10 +353,13 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
     use_future(move || async move {
         loop {
             tokio::time::sleep(Duration::from_millis(100)).await;
-            if *status.peek() != Status::Running {
+            if !status.peek().can_translate() || instance.peek().missing_hosted_api_key() {
                 continue;
             }
             if mode.peek().as_str() != "text" || *composing.peek() {
+                continue;
+            }
+            if languages.pending() || (instance.peek().is_remote() && settings.pending()) {
                 continue;
             }
             // Inspect cheap request metadata before cloning either text buffer.
@@ -288,7 +368,11 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
                 let Some(draft) = state.translations.get(&id) else {
                     continue;
                 };
-                if !draft.ready(instance.peek().server.char_limit) {
+                let info = settings.peek();
+                if !draft.ready(character_limit(
+                    &instance.peek(),
+                    info.as_ref().and_then(Option::as_ref),
+                )) {
                     continue;
                 }
                 draft.clone()
@@ -329,7 +413,7 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
                     .unwrap_or(Err(ApiError::Connection));
                 let mut state = state.write();
                 let current = state.views.iter().any(|view| {
-                    view.instance == instance && view.status == Status::Running && view.pid == pid
+                    view.instance == instance && view.status.can_translate() && view.pid == pid
                 });
                 if let Some(draft) = state.translations.get_mut(&id) {
                     draft.finish(revision, current, result);
@@ -338,23 +422,54 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
         }
     });
     use_effect(move || {
-        if let Some(Ok(languages)) = &*languages.read() {
+        // Subscribe before the pending guard: Resource::pending only peeks,
+        // so a delayed response must still rerun default-language selection.
+        let language_result = languages.read();
+        let info = settings.read();
+        if languages.pending() || (instance().is_remote() && settings.pending()) {
+            return;
+        }
+        if let Some(Ok(languages)) = &*language_result {
             let draft = state
                 .read()
                 .translations
                 .get(&id)
                 .cloned()
                 .unwrap_or_default();
-            let targets = target_languages(languages, &draft.source);
-            if !targets.is_empty() && !targets.iter().any(|language| language.code == draft.target)
+            let instance = instance();
+            let defaults = info
+                .as_ref()
+                .and_then(Option::as_ref)
+                .map(|info| &info.language);
+            let mut source = draft.source.clone();
+            if (draft.target.is_empty() && draft.input.is_empty())
+                || (source != "auto" && !languages.iter().any(|language| language.code == source))
             {
-                let instance = instance();
-                let preferred = if instance.server.frontend_target == "locale" {
+                let preferred = defaults
+                    .and_then(|defaults| defaults.source.as_ref())
+                    .map(|language| language.code.as_str())
+                    .unwrap_or(&instance.server.frontend_source);
+                source = if preferred == "auto"
+                    || languages.iter().any(|language| language.code == preferred)
+                {
+                    preferred.to_owned()
+                } else {
+                    "auto".into()
+                };
+            }
+            let targets = target_languages(languages, &source);
+            let mut target = draft.target.clone();
+            if !targets.is_empty() && !targets.iter().any(|language| language.code == target) {
+                let preferred = defaults
+                    .and_then(|defaults| defaults.target.as_ref())
+                    .map(|language| language.code.as_str())
+                    .unwrap_or(&instance.server.frontend_target);
+                let preferred = if preferred == "locale" {
                     locale.translation_code()
                 } else {
-                    &instance.server.frontend_target
+                    preferred
                 };
-                let target = targets
+                target = targets
                     .iter()
                     .find(|language| {
                         crate::i18n::model_code(&language.code)
@@ -363,8 +478,11 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
                     .unwrap_or(&targets[0])
                     .code
                     .clone();
+            }
+            if source != draft.source || target != draft.target {
                 let mut state = state.write();
                 let draft = state.translations.entry(id).or_default();
+                draft.source = source;
                 draft.target = target;
                 draft.changed();
             }
@@ -382,11 +500,15 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
         .and_then(|result| result.as_ref().ok())
         .cloned()
         .unwrap_or_default();
-    let interactive = status() == Status::Running && !available.is_empty();
+    let discovering = languages.pending() || (instance().is_remote() && settings.pending());
+    let missing_hosted_key = instance().missing_hosted_api_key();
+    let interactive =
+        status().can_translate() && !discovering && !available.is_empty() && !missing_hosted_key;
     if available.is_empty() {
         available = instance()
             .languages
             .split(',')
+            .filter(|code| !code.is_empty())
             .map(|code| Language {
                 name: locale.text(&format!("language_{code}")).into(),
                 code: code.to_string(),
@@ -402,12 +524,23 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
             value: "auto".into(),
             label: locale.text("detect_language").into(),
             disabled: false,
+            details: None,
         },
     );
     let targets = target_languages(&available, &draft.source);
     let target_choices = choices(locale, &targets);
     let count = draft.input.chars().count();
-    let limit = instance().server.char_limit;
+    let limit = character_limit(
+        &instance(),
+        settings.read().as_ref().and_then(Option::as_ref),
+    );
+    let key_required = instance().is_remote()
+        && instance().server.api_key.is_empty()
+        && settings
+            .read()
+            .as_ref()
+            .and_then(Option::as_ref)
+            .is_some_and(|info| info.key_required);
     let too_long = limit.is_some_and(|limit| count > limit as usize);
     let pending = draft.pending_revision.is_some();
     let loading = interactive && !too_long && draft.awaiting_result();
@@ -425,8 +558,11 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
         .and_then(|code| available.iter().find(|language| &language.code == code))
         .map(|language| name(locale, language));
     rsx! {section {class:"translator-panel",
-        if status()!=Status::Running {p {class:"translator-offline",role:"status",Icon{kind:"server"}{locale.text(if status()==Status::NotInstalled{"translator_install_first"}else{"translator_start_server"})}}}
-        else if !interactive {p {class:"field-hint",{locale.text(if languages.pending(){"translator_loading"}else{"translator_unavailable"})}} Button{class:"secondary",onclick:move |_|languages.restart(),{locale.text("rescan_gpu")}}}
+        if missing_hosted_key {p {class:"field-hint",role:"status",{locale.text("hosted_auth_error")}}
+            Button {class:"text-button",onclick:move |_|{let _=webbrowser::open("https://portal.libretranslate.com/");},Icon {kind:"external"}{locale.text("hosted_get_key")}}
+        } else if key_required {p {class:"field-hint",{locale.text("remote_key_required")}}}
+        if !status().can_translate() {p {class:"translator-offline",role:"status",Icon{kind:"server"}{locale.text(if instance().is_remote(){if status()==Status::RemoteChecking{"remote_checking"}else{"remote_offline_hint"}}else if status()==Status::NotInstalled{"translator_install_first"}else{"translator_start_server"})}}}
+        else if !interactive && !missing_hosted_key {p {class:"field-hint",{locale.text(if discovering{"translator_loading"}else{"translator_unavailable"})}} if !discovering {Button{class:"secondary",onclick:move |_|{languages.restart();settings.restart();},{locale.text("rescan_gpu")}}}}
             Tabs{class:"translator-mode",horizontal:true,value:Some(mode()),on_value_change:move|value|mode.set(value),
                 TabList{class:"translator-mode-list",
                     TabTrigger{class:"translator-mode-trigger",index:0usize,value:"text",id:"translator-mode-text-tab",Icon{kind:"text"}{locale.text("translator_text")}}
@@ -471,7 +607,7 @@ pub fn TranslatorPanel(instance: ReadSignal<Instance>, status: ReadSignal<Status
             div {class:"translator-actions",
                 div {role:"status",aria_live:"polite",
                     if too_long {p{class:"field-error",{locale.text("translator_limit").replace("{max}",&limit.unwrap_or_default().to_string())}}}
-                    else if let Some(problem)=draft.error {p{class:"field-error",{locale.text(problem.key())}} Button{class:"secondary tool-button",disabled:pending,aria_label:locale.text("rescan_gpu"),title:locale.text("rescan_gpu"),onclick:move |_|{state.write().translations.entry(id).or_default().changed();},Icon{kind:"repair"}}}
+                    else if let Some(problem)=draft.error {p{class:"field-error",{locale.text(if instance().is_remote() && problem == ApiError::Authorization {"hosted_auth_error"} else {problem.key()})}} Button{class:"secondary tool-button",disabled:pending,aria_label:locale.text("rescan_gpu"),title:locale.text("rescan_gpu"),onclick:move |_|{state.write().translations.entry(id).or_default().changed();},Icon{kind:"repair"}}}
                 }
                 p{class:"field-hint translator-auto",role:"status",if loading{span{class:"spinner",aria_hidden:"true"}}{locale.text(if loading{"translator_working"}else{"translator_auto"})}}
             }}
@@ -520,6 +656,116 @@ fn target_languages(languages: &[Language], source: &str) -> Vec<Language> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn api_key_test_uses_a_fixed_translation_and_distinguishes_failures() {
+        for (status, body, expected) in [
+            ("200 OK", r#"{"translatedText":"hola"}"#, Ok(())),
+            (
+                "403 Forbidden",
+                r#"{"error":"Invalid API key"}"#,
+                Err(ApiError::Authorization),
+            ),
+            (
+                "400 Bad Request",
+                r#"{"error":"Invalid API key"}"#,
+                Err(ApiError::Authorization),
+            ),
+            (
+                "429 Too Many Requests",
+                r#"{"error":"Rate limited"}"#,
+                Err(ApiError::RateLimited),
+            ),
+            (
+                "503 Service Unavailable",
+                r#"{"error":"Unavailable"}"#,
+                Err(ApiError::Server),
+            ),
+            ("200 OK", r#"{"unexpected":true}"#, Err(ApiError::Invalid)),
+        ] {
+            let (mut instance, worker) = serve(status, body);
+            instance.server.api_key = "  fixture-key  ".into();
+            assert_eq!(test_api_key(&instance), expected, "{status}");
+            let request = worker.join().unwrap();
+            assert!(request.starts_with("POST /local/translate HTTP/1.1"));
+            let body: serde_json::Value =
+                serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
+            assert_eq!(body["q"], "hello");
+            assert_eq!(body["source"], "en");
+            assert_eq!(body["target"], "es");
+            assert_eq!(body["api_key"], "fixture-key");
+        }
+        let mut instance = Instance::hosted();
+        for key in ["", "  \t\n"] {
+            instance.server.api_key = key.into();
+            assert_eq!(test_api_key(&instance), Err(ApiError::Authorization));
+        }
+    }
+
+    #[test]
+    fn hosted_translation_requires_a_nonblank_api_key_before_sending() {
+        let mut instance = Instance::hosted();
+        for key in ["", "  \t\n"] {
+            instance.server.api_key = key.into();
+            assert!(instance.missing_hosted_api_key());
+            assert_eq!(
+                translate(&instance, &Draft::default()).unwrap_err(),
+                ApiError::Authorization
+            );
+        }
+        instance.server.api_key = "saved-key".into();
+        assert!(!instance.missing_hosted_api_key());
+        instance = Instance::remote();
+        assert!(!instance.missing_hosted_api_key());
+        assert!(!Instance::default().missing_hosted_api_key());
+    }
+
+    #[test]
+    fn hosted_limits_do_not_restrict_api_key_allowances() {
+        let mut instance = Instance::hosted();
+        let settings: crate::translator_files::Formats = serde_json::from_str(
+            r#"{"filesTranslation":true,"supportedFilesFormat":[".txt"],"charLimit":2000}"#,
+        )
+        .unwrap();
+        assert_eq!(character_limit(&instance, Some(&settings)), Some(2000));
+        instance.server.api_key = "key".into();
+        assert_eq!(character_limit(&instance, Some(&settings)), None);
+        instance.server.api_key.clear();
+        let unlimited: crate::translator_files::Formats = serde_json::from_str(
+            r#"{"filesTranslation":false,"supportedFilesFormat":[],"charLimit":-1}"#,
+        )
+        .unwrap();
+        assert_eq!(character_limit(&instance, Some(&unlimited)), None);
+    }
+
+    #[test]
+    fn keyless_requests_are_sent_and_hosted_key_errors_are_actionable() {
+        let (mut instance, worker) = serve("200 OK", r#"{"translatedText":"Hello"}"#);
+        instance.server.api_key.clear();
+        assert_eq!(
+            translate(&instance, &Draft::default()).unwrap().text,
+            "Hello"
+        );
+        let request = worker.join().unwrap();
+        let body: serde_json::Value =
+            serde_json::from_str(request.split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert_eq!(body["api_key"], "");
+        let (instance, worker) = serve(
+            "400 Bad Request",
+            r#"{"error":"Visit https://portal.libretranslate.com to get an API key"}"#,
+        );
+        assert_eq!(
+            translate(&instance, &Draft::default()).unwrap_err(),
+            ApiError::Authorization
+        );
+        worker.join().unwrap();
+        assert_eq!(
+            response_error(
+                reqwest::StatusCode::BAD_REQUEST,
+                br#"{"error":"Unsupported language"}"#
+            ),
+            Some(ApiError::Invalid)
+        );
+    }
     #[test]
     fn result_loading_covers_debounce_and_requests_but_ends_on_error_clear_or_completion() {
         let mut draft = Draft::default();
@@ -763,6 +1009,37 @@ mod tests {
             ApiError::Authorization
         );
         worker.join().unwrap();
+    }
+
+    #[test]
+    fn remote_discovery_uses_the_configured_prefix_and_all_languages() {
+        let (local, worker) = serve(
+            "200 OK",
+            r#"[{"code":"en","name":"English","targets":["ro","fr"]},{"code":"ro","name":"Romanian","targets":["en"]},{"code":"fr","name":"French","targets":["en"]}]"#,
+        );
+        let mut remote = Instance::remote();
+        remote.remote_url = local.url();
+        remote.validate(&[]).unwrap();
+        let languages = languages(&remote).unwrap();
+        assert_eq!(languages.len(), 3);
+        assert_eq!(target_languages(&languages, "auto").len(), 3);
+        assert_eq!(target_languages(&languages, "en").len(), 2);
+        assert!(worker.join().unwrap().starts_with("GET /local/languages "));
+
+        let (local, worker) = serve(
+            "200 OK",
+            r#"{"charLimit":1200,"keyRequired":true,"language":{"source":{"code":"en","name":"English"},"target":{"code":"ro","name":"Romanian"}},"supportedFilesFormat":[".txt",".pdf"]}"#,
+        );
+        remote.remote_url = local.url();
+        let info = crate::translator_files::formats(&remote).unwrap();
+        assert_eq!(info.char_limit, Some(1200));
+        assert!(info.key_required && info.files_translation);
+        assert_eq!(info.supported_files_format, vec![".txt", ".pdf"]);
+        assert_eq!(info.language.source.unwrap().code, "en");
+        assert_eq!(info.language.target.unwrap().code, "ro");
+        let request = worker.join().unwrap();
+        assert!(request.starts_with("GET /local/frontend/settings "));
+        assert!(!request.contains("api_key"));
     }
     #[test]
     fn editing_invalidates_the_old_result_without_losing_the_input() {

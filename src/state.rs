@@ -75,6 +75,7 @@ pub struct AppState {
     pub downloads: HashMap<Uuid, BTreeMap<String, ModelDownload>>,
     pub translations: HashMap<Uuid, crate::translator::Draft>,
     pub file_translations: HashMap<Uuid, crate::translator_files::Draft>,
+    pub remote_languages: HashMap<Uuid, String>,
     pub message: Option<Message>,
     pub fatal: Option<String>,
     pub pending: bool,
@@ -149,6 +150,7 @@ impl AppState {
             downloads: HashMap::new(),
             translations: HashMap::new(),
             file_translations: HashMap::new(),
+            remote_languages: HashMap::new(),
             message: update_error.clone().map(|details| Message {
                 key: "app_update_failed",
                 details: Some(details),
@@ -244,20 +246,50 @@ impl AppState {
         }
         for event in update.events {
             match event {
+                Event::Languages(id, url, languages) => {
+                    if self
+                        .views
+                        .iter()
+                        .any(|view| view.instance.id == id && view.instance.url() == url)
+                    {
+                        self.remote_languages.insert(id, languages);
+                    }
+                }
                 Event::Snapshot(views) => {
                     for view in &views {
-                        if view.status == crate::manager::Status::Running
+                        let endpoint_changed = view.instance.is_remote()
                             && self
                                 .views
                                 .iter()
                                 .find(|old| old.instance.id == view.instance.id)
-                                .is_some_and(|old| old.status != view.status || old.pid != view.pid)
+                                .is_some_and(|old| old.instance.url() != view.instance.url());
+                        if endpoint_changed {
+                            self.remote_languages.remove(&view.instance.id);
+                            if let Some(draft) = self.translations.get_mut(&view.instance.id) {
+                                draft.changed();
+                            }
+                            if let Some(draft) = self.file_translations.get_mut(&view.instance.id) {
+                                draft.endpoint_changed();
+                            }
+                        }
+                        if view.status.can_translate()
+                            && self
+                                .views
+                                .iter()
+                                .find(|old| old.instance.id == view.instance.id)
+                                .is_some_and(|old| {
+                                    old.status != view.status
+                                        || old.pid != view.pid
+                                        || old.instance != view.instance
+                                })
                             && let Some(draft) = self.translations.get_mut(&view.instance.id)
                         {
                             draft.server_restarted();
                         }
                     }
                     self.views = views;
+                    self.remote_languages
+                        .retain(|id, _| self.views.iter().any(|view| view.instance.id == *id));
                     self.translations
                         .retain(|id, _| self.views.iter().any(|view| view.instance.id == *id));
                     self.file_translations.retain(|id, draft| {
@@ -379,6 +411,7 @@ impl AppState {
         let assigned = self
             .views
             .iter()
+            .filter(|v| !v.instance.is_remote())
             .map(|v| v.instance.port)
             .collect::<Vec<_>>();
         let port = crate::network::find_free_port(5000, &assigned).unwrap_or(5000);
@@ -434,9 +467,15 @@ impl AppState {
     }
     pub fn save_instance(&mut self, mut instance: Instance) {
         let instances: Vec<_> = self.views.iter().map(|v| v.instance.clone()).collect();
-        if let Err(error) = instance.validate(&instances) {
+        if let Err(error) = instance.validate_for_save(&instances) {
             let detail = error.to_string();
-            let key = if detail.contains("name") {
+            let key = if detail.starts_with("Hosted API key:") {
+                "hosted_auth_error"
+            } else if detail.starts_with("Remote health:") {
+                "validation_health"
+            } else if detail.starts_with("Remote URL:") {
+                "validation_remote_url"
+            } else if detail.contains("name") {
                 "validation_name"
             } else if detail.contains("already assigned") {
                 "validation_port_used"
@@ -487,7 +526,7 @@ impl AppState {
                     .iter()
                     .find(|view| view.instance.id == draft.id)
                     .is_some_and(|view| !view.status.busy() && draft != &view.instance)
-                && draft.clone().validate(&instances).is_ok()
+                && draft.clone().validate_for_save(&instances).is_ok()
                 && (draft.device != crate::model::Device::Cuda
                     || self.gpu.as_ref().is_some_and(GpuInfo::available))
         })
@@ -525,7 +564,7 @@ impl AppState {
                 self.pending_saves.lock().unwrap().remove(&draft.id);
                 continue;
             }
-            if draft.validate(&instances).is_err() {
+            if draft.validate_for_save(&instances).is_err() {
                 continue;
             }
             if draft.device == crate::model::Device::Cuda
@@ -568,8 +607,14 @@ impl AppState {
             .iter()
             .map(|v| v.instance.clone())
             .collect::<Vec<_>>();
-        let error = draft.clone().validate(&others).err()?.to_string();
-        Some(if error.starts_with("Advanced settings:") {
+        let error = draft.clone().validate_for_save(&others).err()?.to_string();
+        Some(if error.starts_with("Hosted API key:") {
+            "hosted_auth_error"
+        } else if error.starts_with("Remote health:") {
+            "validation_health"
+        } else if error.starts_with("Remote URL:") {
+            "validation_remote_url"
+        } else if error.starts_with("Advanced settings:") {
             if error.contains("limits") {
                 "validation_limits"
             } else {
@@ -586,6 +631,12 @@ impl AppState {
         } else {
             "validation_languages"
         })
+    }
+    pub fn avatar_languages(&self, instance: &Instance) -> String {
+        self.remote_languages
+            .get(&instance.id)
+            .cloned()
+            .unwrap_or_else(|| instance.languages.clone())
     }
     pub fn set_locale(&mut self, locale: Locale) {
         self.locale = locale;
@@ -667,6 +718,38 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn remote_endpoint_changes_clear_completed_text_and_cached_languages() {
+        let mut state = AppState::from_settings(Err(anyhow::anyhow!("fixture")));
+        let mut instance = Instance::remote();
+        instance.remote_url = "https://a.example/lt".into();
+        let id = instance.id;
+        state.views.push(View {
+            instance: instance.clone(),
+            status: crate::manager::Status::RemoteOnline,
+            pid: None,
+        });
+        let mut draft = crate::translator::Draft::default();
+        draft.input = "Hello".into();
+        draft.output = "Old server output".into();
+        draft.translated_revision = Some(draft.revision);
+        state.translations.insert(id, draft);
+        state.remote_languages.insert(id, "en,ro".into());
+        instance.remote_url = "https://b.example/lt".into();
+        state.poll(PollUpdate {
+            events: vec![Event::Snapshot(vec![View {
+                instance,
+                status: crate::manager::Status::RemoteChecking,
+                pid: None,
+            }])],
+            logs: vec![],
+            downloads: None,
+        });
+        let draft = &state.translations[&id];
+        assert_eq!(draft.input, "Hello");
+        assert!(draft.output.is_empty() && draft.translated_revision.is_none());
+        assert!(!state.remote_languages.contains_key(&id));
+    }
     #[test]
     fn installation_keeps_model_transfers_active_until_the_operation_stops() {
         use crate::{downloads::DownloadPhase, manager::Status};

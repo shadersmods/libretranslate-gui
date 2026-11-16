@@ -34,6 +34,7 @@ fn RuntimeVersion(instance: Instance, editable: bool) -> Element {
             label: version.clone(),
             value: version,
             disabled: false,
+            details: None,
         })
         .collect::<Vec<_>>();
     let outdated = installed

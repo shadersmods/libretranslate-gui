@@ -22,6 +22,9 @@ use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
+    RemoteChecking,
+    RemoteOnline,
+    RemoteOffline,
     NotInstalled,
     Installing,
     UpdatingModels,
@@ -32,6 +35,9 @@ pub enum Status {
     Failed,
 }
 impl Status {
+    pub fn can_translate(self) -> bool {
+        matches!(self, Self::Running | Self::RemoteOnline)
+    }
     pub fn active(self) -> bool {
         matches!(self, Self::Starting | Self::Running | Self::Unresponsive)
     }
@@ -55,6 +61,7 @@ pub enum Action {
     Start(Uuid),
     Stop(Uuid),
     Remove(Uuid),
+    CheckConnection(Uuid),
     Shutdown,
 }
 pub enum Event {
@@ -62,6 +69,7 @@ pub enum Event {
     Error(String),
     SaveFailed { id: Uuid, details: String },
     Notice(Notice),
+    Languages(Uuid, String, String),
 }
 pub enum Notice {
     Saved(Uuid),
@@ -74,6 +82,8 @@ pub struct Log {
     pub text: String,
 }
 enum Internal {
+    RemoteHealth(Uuid, String, bool),
+    Languages(Uuid, String, String),
     Installed(Uuid, std::result::Result<(), String>),
     Health(Uuid, u32, bool),
     ModelsUpdated(Uuid, std::result::Result<(), String>),
@@ -112,7 +122,7 @@ impl Manager {
         lock.try_lock_exclusive().context(
             "Another LibreTranslate Desktop window is using this data directory. Close it first.",
         )?;
-        let instances = model::load(&root)?;
+        let instances = model::load_initialized(&root)?;
         let removals = crate::removals::recover(&root, &instances)?;
         let (actions, receive) = mpsc::channel();
         // Control acknowledgements must survive a temporarily busy renderer.
@@ -169,6 +179,11 @@ struct Actor {
     status: HashMap<Uuid, Status>,
     children: HashMap<Uuid, OwnedChild>,
     probing: HashMap<Uuid, u32>,
+    remote_checks: HashMap<Uuid, Instant>,
+    remote_probing: HashMap<Uuid, String>,
+    remote_failures: HashMap<Uuid, u8>,
+    remote_languages: HashMap<Uuid, String>,
+    remote_workers: Vec<JoinHandle<()>>,
     installing: Option<Uuid>,
     installer: Option<JoinHandle<()>>,
     send: Sender<Event>,
@@ -196,7 +211,9 @@ impl Actor {
             .map(|i| {
                 (
                     i.id,
-                    if runtime::ready(&runtime::instance_dir(&root, i.id), i.device) {
+                    if i.is_remote() {
+                        Status::RemoteChecking
+                    } else if runtime::ready(&runtime::instance_dir(&root, i.id), i.device) {
                         Status::Stopped
                     } else {
                         Status::NotInstalled
@@ -212,6 +229,11 @@ impl Actor {
             status,
             children: HashMap::new(),
             probing: HashMap::new(),
+            remote_checks: HashMap::new(),
+            remote_probing: HashMap::new(),
+            remote_failures: HashMap::new(),
+            remote_languages: HashMap::new(),
+            remote_workers: Vec::new(),
             installing: None,
             installer: None,
             send,
@@ -294,6 +316,18 @@ impl Actor {
                 let models_updated = matches!(&event, Internal::ModelsUpdated(_, _));
                 let storage_cleaned = matches!(&event, Internal::StorageCleaned(_, _));
                 match event {
+                    Internal::RemoteHealth(id, url, healthy) => {
+                        self.remote_health(id, &url, healthy);
+                    }
+                    Internal::Languages(id, url, languages) => {
+                        if self
+                            .get(id)
+                            .is_ok_and(|instance| instance.is_remote() && instance.url() == url)
+                        {
+                            self.remote_languages.insert(id, url.clone());
+                            let _ = self.send.send(Event::Languages(id, url, languages));
+                        }
+                    }
                     Internal::Installed(id, result)
                     | Internal::ModelsUpdated(id, result)
                     | Internal::StorageCleaned(id, result) => {
@@ -354,6 +388,9 @@ impl Actor {
         if let Some(worker) = self.installer.take() {
             let _ = worker.join();
         }
+        for worker in self.remote_workers {
+            let _ = worker.join();
+        }
     }
     fn get(&self, id: Uuid) -> Result<Instance> {
         self.instances
@@ -382,7 +419,7 @@ impl Actor {
         }
         let all = next.clone();
         for draft in &mut next {
-            draft.validate(&all)?;
+            draft.validate_for_save(&all)?;
         }
         model::save(&self.root, &next)?;
         self.instances = next;
@@ -402,7 +439,10 @@ impl Actor {
                         && self.installing != Some(instance.id),
                     "Stop the instance before editing its settings."
                 );
-                instance.validate(&self.instances)?;
+                instance.validate_for_save(&self.instances)?;
+                let unchanged_endpoint = self.instances.iter().any(|old| {
+                    old.id == instance.id && old.is_remote() && old.url() == instance.url()
+                });
                 let mut next = self.instances.clone();
                 if let Some(existing) = next.iter_mut().find(|i| i.id == instance.id) {
                     *existing = instance.clone();
@@ -413,7 +453,16 @@ impl Actor {
                 model::save(&self.root, &next)?;
                 self.status.insert(
                     instance.id,
-                    if runtime::ready(
+                    if instance.is_remote() {
+                        if unchanged_endpoint {
+                            self.status
+                                .get(&instance.id)
+                                .copied()
+                                .unwrap_or(Status::RemoteChecking)
+                        } else {
+                            Status::RemoteChecking
+                        }
+                    } else if runtime::ready(
                         &runtime::instance_dir(&self.root, instance.id),
                         instance.device,
                     ) {
@@ -422,11 +471,21 @@ impl Actor {
                         Status::NotInstalled
                     },
                 );
+                if !unchanged_endpoint {
+                    self.remote_checks.remove(&instance.id);
+                    self.remote_probing.remove(&instance.id);
+                    self.remote_failures.remove(&instance.id);
+                    self.remote_languages.remove(&instance.id);
+                }
                 self.instances = next;
                 let _ = self.send.send(Event::Notice(Notice::Saved(instance.id)));
             }
             Action::Install(id) => {
                 let instance = self.get(id)?;
+                ensure!(
+                    !instance.is_remote(),
+                    "Hosted instances do not have a local runtime."
+                );
                 ensure!(
                     self.installing.is_none(),
                     "Wait for the current installation to finish."
@@ -451,6 +510,10 @@ impl Actor {
             Action::UpdateModels(id) | Action::CleanStorage(id) => {
                 let clean = matches!(action, Action::CleanStorage(_));
                 let instance = self.get(id)?;
+                ensure!(
+                    !instance.is_remote(),
+                    "Hosted models are managed by the service."
+                );
                 ensure!(
                     self.installing.is_none(),
                     "Wait for the current installation or model update."
@@ -487,6 +550,10 @@ impl Actor {
             Action::Start(id) => {
                 let instance = self.get(id)?;
                 ensure!(
+                    !instance.is_remote(),
+                    "Hosted instances are managed by the service."
+                );
+                ensure!(
                     self.installing != Some(id),
                     "Wait for installation to finish."
                 );
@@ -508,7 +575,10 @@ impl Actor {
                 }
             }
             Action::Stop(id) => {
-                self.get(id)?;
+                ensure!(
+                    !self.get(id)?.is_remote(),
+                    "Hosted instances are managed by the service."
+                );
                 if let Some(mut child) = self.children.remove(&id) {
                     if let Err(error) = child.0.kill()
                         && child.0.try_wait()?.is_none()
@@ -544,7 +614,7 @@ impl Actor {
                 }
             }
             Action::Remove(id) => {
-                self.get(id)?;
+                let instance = self.get(id)?;
                 ensure!(
                     !self.children.contains_key(&id) && self.installing != Some(id),
                     "Stop the instance before removing it."
@@ -555,7 +625,11 @@ impl Actor {
                     .filter(|i| i.id != id)
                     .cloned()
                     .collect();
-                let removal = crate::removals::Removal::stage(&self.root, id)?;
+                let removal = if instance.is_remote() {
+                    None
+                } else {
+                    crate::removals::Removal::stage(&self.root, id)?
+                };
                 if let Err(error) = model::save(&self.root, &next) {
                     if let Some(removal) = removal {
                         removal.rollback()?;
@@ -565,17 +639,47 @@ impl Actor {
                 }
                 self.instances = next;
                 self.status.remove(&id);
+                self.remote_checks.remove(&id);
+                self.remote_probing.remove(&id);
+                self.remote_failures.remove(&id);
+                self.remote_languages.remove(&id);
                 self.downloads.lock().unwrap().remove(&id);
                 if let Some(removal) = removal {
                     cleanup.send(removal).map_err(|_|anyhow::anyhow!("The instance was removed. Its retained files will be cleaned on restart."))?;
                 }
                 let _ = self.send.send(Event::Notice(Notice::Removed));
             }
+            Action::CheckConnection(id) => {
+                let instance = self.get(id)?;
+                ensure!(
+                    instance.is_remote(),
+                    "Connection checks are for remote instances."
+                );
+                if !self.remote_probing.contains_key(&id) {
+                    self.check_remote(instance);
+                }
+            }
             Action::Shutdown => {}
         }
         Ok(())
     }
     fn poll(&mut self) {
+        let remote = self
+            .instances
+            .iter()
+            .filter(|instance| {
+                instance.is_remote()
+                    && !self.remote_probing.contains_key(&instance.id)
+                    && self.remote_checks.get(&instance.id).is_none_or(|checked| {
+                        checked.elapsed() >= Duration::from_secs(instance.health.interval_secs)
+                    })
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        for instance in remote {
+            self.check_remote(instance);
+        }
+        self.remote_workers.retain(|worker| !worker.is_finished());
         let ids: Vec<_> = self.children.keys().copied().collect();
         for id in ids {
             let result = self.children.get_mut(&id).unwrap().0.try_wait();
@@ -606,6 +710,86 @@ impl Actor {
             }
         }
     }
+
+    fn remote_health(&mut self, id: Uuid, url: &str, healthy: bool) {
+        if self.remote_probing.get(&id).map(String::as_str) != Some(url) {
+            return;
+        }
+        self.remote_probing.remove(&id);
+        if let Ok(instance) = self.get(id)
+            && instance.is_remote()
+            && instance.url() == url
+        {
+            let failures = self.remote_failures.entry(id).or_default();
+            if healthy {
+                *failures = 0;
+                self.status.insert(id, Status::RemoteOnline);
+            } else {
+                *failures = failures.saturating_add(1);
+                if *failures >= instance.health.failure_threshold {
+                    self.status.insert(id, Status::RemoteOffline);
+                    self.remote_languages.remove(&id);
+                }
+            }
+        }
+    }
+
+    fn check_remote(&mut self, instance: Instance) {
+        let id = instance.id;
+        let url = instance.url();
+        self.remote_checks.insert(id, Instant::now());
+        self.remote_probing.insert(id, url.clone());
+        let discover = self.remote_languages.get(&id) != Some(&url);
+        let send = self.internal_send.clone();
+        let cancel = self.cancel.clone();
+        self.remote_workers.push(thread::spawn(move || {
+            if cancel.load(Ordering::Relaxed) {
+                return;
+            }
+            let healthy = remote_healthy(&url, Duration::from_secs(instance.health.timeout_secs));
+            if cancel.load(Ordering::Relaxed) {
+                return;
+            }
+            let _ = send.send(Internal::RemoteHealth(id, url.clone(), healthy));
+            if healthy
+                && discover
+                && !cancel.load(Ordering::Relaxed)
+                && let Ok(languages) = crate::translator::languages(&instance)
+            {
+                let codes = languages
+                    .into_iter()
+                    .map(|language| language.code)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let _ = send.send(Internal::Languages(id, url, codes));
+            }
+        }));
+    }
+}
+
+fn remote_healthy(url: &str, timeout: Duration) -> bool {
+    let check = || -> Result<bool> {
+        let client = reqwest::blocking::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(timeout)
+            .build()?;
+        let response = client
+            .get(format!("{}/health", url.trim_end_matches('/')))
+            .send()?;
+        if response.status() != reqwest::StatusCode::OK {
+            return Ok(false);
+        }
+        use std::io::Read;
+        let mut body = Vec::new();
+        response.take(4097).read_to_end(&mut body)?;
+        if body.len() > 4096 {
+            return Ok(false);
+        }
+        let value: serde_json::Value = serde_json::from_slice(&body)?;
+        Ok(value.get("status").and_then(|status| status.as_str()) == Some("ok"))
+    };
+    check().unwrap_or(false)
 }
 
 fn healthy(url: &str) -> bool {
@@ -633,8 +817,123 @@ fn healthy(url: &str) -> bool {
 mod tests {
     use super::*;
     #[test]
+    fn manual_health_checks_preserve_translation_until_failure_threshold() {
+        let root = tempfile::tempdir().unwrap();
+        let instance = Instance {
+            remote_url: "http://127.0.0.1:9/prefix".into(),
+            ..Instance::remote()
+        };
+        let id = instance.id;
+        let url = instance.url();
+        let (send, _events) = mpsc::channel();
+        let (logs, _log_events) = mpsc::sync_channel(1);
+        // Exercise actor transitions without letting the probe threads use a network.
+        let mut actor = Actor::new(
+            StoragePaths::new(root.path().into()),
+            vec![instance],
+            send,
+            logs,
+            Arc::new(AtomicBool::new(true)),
+            File::create(root.path().join("manager.lock")).unwrap(),
+            SharedDownloads::default(),
+        );
+        let (cleanup, _removals) = mpsc::channel();
+        actor.action(Action::CheckConnection(id), &cleanup).unwrap();
+        assert_eq!(actor.status[&id], Status::RemoteChecking);
+        actor.remote_health(id, &url, true);
+        assert!(actor.status[&id].can_translate());
+
+        actor.action(Action::CheckConnection(id), &cleanup).unwrap();
+        assert!(
+            actor.status[&id].can_translate(),
+            "Manual probes must not interrupt transfers"
+        );
+        actor.remote_health(id, &url, false);
+        assert!(
+            actor.status[&id].can_translate(),
+            "One failed check is below the threshold"
+        );
+        actor.action(Action::CheckConnection(id), &cleanup).unwrap();
+        assert!(actor.status[&id].can_translate());
+        actor.remote_health(id, &url, false);
+        assert_eq!(actor.status[&id], Status::RemoteOffline);
+
+        actor.action(Action::CheckConnection(id), &cleanup).unwrap();
+        assert_eq!(actor.status[&id], Status::RemoteOffline);
+        actor.remote_health(id, "http://other.example", true);
+        assert_eq!(actor.status[&id], Status::RemoteOffline);
+        actor.remote_health(id, &url, true);
+        assert!(actor.status[&id].can_translate());
+        assert_eq!(actor.remote_failures[&id], 0);
+        for worker in actor.remote_workers {
+            worker.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn hosted_instance_is_editable_removable_and_never_spawns_a_runtime() {
+        let dir = tempfile::tempdir().unwrap();
+        model::save(dir.path(), &[Instance::hosted()]).unwrap();
+        let manager = Manager::new(dir.path().into()).unwrap();
+        let view = wait(&manager, |views| views.len() == 1).remove(0);
+        assert_eq!(view.status, Status::RemoteChecking);
+        assert!(!view.status.can_translate());
+        assert!(!view.status.busy());
+        assert!(view.pid.is_none());
+        let mut instance = view.instance;
+        let id = instance.id;
+        instance.server.api_key = "test-key".into();
+        manager
+            .actions
+            .send(Action::Save(Box::new(instance)))
+            .unwrap();
+        wait(&manager, |views| {
+            views[0].instance.server.api_key == "test-key"
+        });
+        for action in [
+            Action::Start(id),
+            Action::Stop(id),
+            Action::Install(id),
+            Action::UpdateModels(id),
+            Action::CleanStorage(id),
+        ] {
+            manager.actions.send(action).unwrap();
+            loop {
+                if matches!(
+                    manager.events.recv_timeout(Duration::from_secs(5)).unwrap(),
+                    Event::Error(_)
+                ) {
+                    break;
+                }
+            }
+        }
+        assert!(!runtime::instance_dir(dir.path(), id).exists());
+        manager.actions.send(Action::Remove(id)).unwrap();
+        wait(&manager, |views| views.is_empty());
+        drop(manager);
+        let manager = Manager::new(dir.path().into()).unwrap();
+        wait(&manager, |views| views.is_empty());
+        assert!(
+            !fs::read_to_string(dir.path().join("instances.json"))
+                .unwrap()
+                .contains("test-key")
+        );
+        // Re-adding uses the same ordinary Save operation as a local instance.
+        let mut hosted = Instance::hosted();
+        hosted.server.api_key = "new-test-key".into();
+        manager
+            .actions
+            .send(Action::Save(Box::new(hosted)))
+            .unwrap();
+        wait(&manager, |views| {
+            views.len() == 1 && views[0].status == Status::RemoteChecking
+        });
+    }
+
+    #[test]
     fn busy_renderer_does_not_lose_save_acknowledgements() {
         let dir = tempfile::tempdir().unwrap();
+        model::save(dir.path(), &[]).unwrap();
         let manager = Manager::new(dir.path().into()).unwrap();
         let mut instance = Instance::default();
         for index in 0..40 {
@@ -847,6 +1146,7 @@ mod tests {
     #[test]
     fn audit_failed_removal_save_preserves_instance_files() {
         let dir = tempfile::tempdir().unwrap();
+        model::save(dir.path(), &[]).unwrap();
         let manager = Manager::new(dir.path().into()).unwrap();
         let instance = Instance::default();
         let id = instance.id;
@@ -877,6 +1177,7 @@ mod tests {
     #[test]
     fn shutdown_flush_acknowledges_failure_and_can_retry_without_losing_drafts() {
         let dir = tempfile::tempdir().unwrap();
+        model::save(dir.path(), &[]).unwrap();
         let manager = Manager::new(dir.path().into()).unwrap();
         let mut instance = Instance::default();
         manager
@@ -913,6 +1214,7 @@ mod tests {
     #[test]
     fn persists_instances_locks_directory_and_removes_files() {
         let dir = tempfile::tempdir().unwrap();
+        model::save(dir.path(), &[]).unwrap();
         let manager = Manager::new(dir.path().into()).unwrap();
         assert!(Manager::new(dir.path().into()).is_err());
         let instance = Instance::default();

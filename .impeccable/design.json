@@ -856,7 +856,8 @@
         "anchor outside viewport"
       ],
       "keyboard": "Direct button focus opens hints; wrappers do not add a tab stop.",
-      "previewLanguages": "At most six language chips, followed by the remaining count.",
+      "previewLanguages": "Library cards and previews share up to nine language badges, followed by the remaining count; cloud and remote instances use detected languages.",
+      "previewMetadata": "Place the 14px instance-type icon in the preview metadata row before CPU/CUDA when applicable.",
       "surface": "Shared tooltip-bg and tooltip-border from the active theme; theme text color; no shadow for hints or rich previews."
     },
     "railInstanceLayout": {

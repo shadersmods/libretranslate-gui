@@ -172,10 +172,42 @@ impl ServerOptions {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InstanceKind {
+    #[default]
+    Local,
+    LibreTranslate,
+    Remote,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct HealthOptions {
+    pub interval_secs: u64,
+    pub timeout_secs: u64,
+    pub failure_threshold: u8,
+}
+impl Default for HealthOptions {
+    fn default() -> Self {
+        Self {
+            interval_secs: 30,
+            timeout_secs: 5,
+            failure_threshold: 2,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Instance {
     pub id: Uuid,
+    #[serde(default)]
+    pub kind: InstanceKind,
+    #[serde(default)]
+    pub remote_url: String,
+    #[serde(default)]
+    pub health: HealthOptions,
     pub name: String,
     pub port: u16,
     pub languages: String,
@@ -190,6 +222,9 @@ impl Default for Instance {
     fn default() -> Self {
         Self {
             id: Uuid::new_v4(),
+            kind: InstanceKind::Local,
+            remote_url: String::new(),
+            health: HealthOptions::default(),
             name: "My translator".into(),
             port: 5000,
             languages: "en,es".into(),
@@ -201,17 +236,96 @@ impl Default for Instance {
 }
 
 impl Instance {
+    pub fn hosted() -> Self {
+        Self {
+            kind: InstanceKind::LibreTranslate,
+            name: "LibreTranslate.com".into(),
+            languages: String::new(),
+            ..Self::default()
+        }
+    }
+
+    pub fn is_hosted(&self) -> bool {
+        self.kind == InstanceKind::LibreTranslate
+    }
+
+    pub fn missing_hosted_api_key(&self) -> bool {
+        self.is_hosted() && self.server.api_key.trim().is_empty()
+    }
+
+    pub fn remote() -> Self {
+        Self {
+            kind: InstanceKind::Remote,
+            name: "Remote translator".into(),
+            languages: String::new(),
+            ..Self::default()
+        }
+    }
+
+    pub fn is_remote(&self) -> bool {
+        self.kind != InstanceKind::Local
+    }
+
+    pub fn validate_for_save(&mut self, others: &[Instance]) -> Result<()> {
+        self.validate(others)?;
+        if self.missing_hosted_api_key() {
+            bail!("Hosted API key: LibreTranslate.com requires an API key.");
+        }
+        Ok(())
+    }
+
     pub fn validate(&mut self, others: &[Instance]) -> Result<()> {
         self.name = self.name.trim().to_owned();
         if self.name.is_empty() || self.name.chars().count() > 64 {
             bail!("Enter an instance name between 1 and 64 characters.");
+        }
+        if self.is_remote() {
+            if !(5..=3600).contains(&self.health.interval_secs)
+                || !(1..=60).contains(&self.health.timeout_secs)
+                || self.health.timeout_secs > self.health.interval_secs
+                || !(1..=10).contains(&self.health.failure_threshold)
+            {
+                bail!(
+                    "Remote health: interval must be 5–3600 seconds, timeout 1–60 seconds and no longer than the interval, and failure count 1–10."
+                );
+            }
+            if self.kind == InstanceKind::Remote {
+                let url = reqwest::Url::parse(self.remote_url.trim())
+                    .context("Remote URL: enter a full HTTP or HTTPS server address.")?;
+                if !matches!(url.scheme(), "http" | "https")
+                    || url.host_str().is_none()
+                    || !url.username().is_empty()
+                    || url.password().is_some()
+                    || url.query().is_some()
+                    || url.fragment().is_some()
+                {
+                    bail!(
+                        "Remote URL: use HTTP or HTTPS without credentials, a query, or a fragment."
+                    );
+                }
+                self.remote_url = url.as_str().trim_end_matches('/').to_owned();
+            } else {
+                self.remote_url.clear();
+            }
+            self.server.api_key = self.server.api_key.trim().to_owned();
+            if self.server.api_key.len() > 512 {
+                bail!("Advanced settings: the API key is too long.");
+            }
+            // Hosted capabilities come from the service, never local runtime settings.
+            self.languages.clear();
+            self.device = Device::Cpu;
+            self.server = ServerOptions {
+                api_key: self.server.api_key.clone(),
+                ..ServerOptions::default()
+            };
+            return Ok(());
         }
         if self.port < 1024 {
             bail!("Choose a port between 1024 and 65535.");
         }
         if others
             .iter()
-            .any(|i| i.id != self.id && i.port == self.port)
+            .any(|i| !i.is_remote() && i.id != self.id && i.port == self.port)
         {
             bail!(
                 "Port {} is already assigned to another instance.",
@@ -242,22 +356,45 @@ impl Instance {
     }
 
     pub fn url(&self) -> String {
-        format!("http://127.0.0.1:{}{}", self.port, self.server.url_prefix)
+        match self.kind {
+            InstanceKind::LibreTranslate => "https://libretranslate.com".into(),
+            InstanceKind::Remote => self.remote_url.clone(),
+            InstanceKind::Local => {
+                format!("http://127.0.0.1:{}{}", self.port, self.server.url_prefix)
+            }
+        }
     }
 }
 
-pub fn load(root: &Path) -> Result<Vec<Instance>> {
+// Preserve the current envelope while accepting older instance arrays.
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InstanceStore {
+    instances: Vec<Instance>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StoredInstances {
+    Current(InstanceStore),
+    Legacy(Vec<Instance>),
+}
+
+fn read_store(root: &Path) -> Result<(Vec<Instance>, bool)> {
     let path = root.join("instances.json");
     if !path.exists() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), false));
     }
-    let mut instances: Vec<Instance> =
-        serde_json::from_slice(&fs::read(&path)?).with_context(|| {
-            format!(
-                "Could not read {}. Restore a valid configuration before reopening the app.",
-                path.display()
-            )
-        })?;
+    let stored: StoredInstances = serde_json::from_slice(&fs::read(&path)?).with_context(|| {
+        format!(
+            "Could not read {}. Restore a valid configuration before reopening the app.",
+            path.display()
+        )
+    })?;
+    let (mut instances, initialized) = match stored {
+        StoredInstances::Current(store) => (store.instances, true),
+        StoredInstances::Legacy(instances) => (instances, false),
+    };
     // Portable configurations may come from a machine with more logical CPUs.
     for instance in &mut instances {
         instance.threads = instance.threads.min(max_threads());
@@ -270,6 +407,19 @@ pub fn load(root: &Path) -> Result<Vec<Instance>> {
         }
         instances[index] = checked;
     }
+    Ok((instances, initialized))
+}
+
+#[cfg(test)]
+pub fn load(root: &Path) -> Result<Vec<Instance>> {
+    read_store(root).map(|(instances, _)| instances)
+}
+
+pub fn load_initialized(root: &Path) -> Result<Vec<Instance>> {
+    let (instances, initialized) = read_store(root)?;
+    if !initialized {
+        save(root, &instances)?;
+    }
     Ok(instances)
 }
 
@@ -278,7 +428,9 @@ pub fn save(root: &Path, instances: &[Instance]) -> Result<()> {
     let temp = root.join("instances.json.tmp");
     let mut file = fs::File::create(&temp)?;
     use std::io::Write;
-    file.write_all(&serde_json::to_vec_pretty(instances)?)?;
+    file.write_all(&serde_json::to_vec_pretty(&InstanceStore {
+        instances: instances.to_vec(),
+    })?)?;
     file.sync_all()?;
     fs::rename(temp, root.join("instances.json"))?;
     Ok(())
@@ -287,6 +439,115 @@ pub fn save(root: &Path, instances: &[Instance]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn initialization_and_migration_never_create_hosted_instances() {
+        let root = tempfile::tempdir().unwrap();
+        let first = load_initialized(root.path()).unwrap();
+        assert!(first.is_empty());
+        assert_eq!(load_initialized(root.path()).unwrap(), first);
+        save(root.path(), &[]).unwrap();
+        assert!(load_initialized(root.path()).unwrap().is_empty());
+
+        let local = Instance::default();
+        fs::write(
+            root.path().join("instances.json"),
+            serde_json::to_vec(&vec![local.clone()]).unwrap(),
+        )
+        .unwrap();
+        let migrated = load_initialized(root.path()).unwrap();
+        assert_eq!(migrated.len(), 1);
+        assert_eq!(migrated[0], local);
+        assert_eq!(load_initialized(root.path()).unwrap(), migrated);
+        save(root.path(), &[local]).unwrap();
+        assert_eq!(load_initialized(root.path()).unwrap().len(), 1);
+
+        let hosted = Instance::hosted();
+        save(root.path(), std::slice::from_ref(&hosted)).unwrap();
+        assert_eq!(load_initialized(root.path()).unwrap(), vec![hosted.clone()]);
+        fs::write(
+            root.path().join("instances.json"),
+            serde_json::to_vec(&vec![hosted.clone()]).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(load_initialized(root.path()).unwrap(), vec![hosted]);
+    }
+
+    #[test]
+    fn hosted_saves_require_a_key_but_existing_keyless_instances_can_load() {
+        let mut hosted = Instance::hosted();
+        for key in ["", "  \t\n"] {
+            hosted.server.api_key = key.into();
+            assert!(hosted.validate_for_save(&[]).is_err());
+        }
+        hosted.validate(&[]).unwrap();
+        hosted.server.api_key = "  saved-key  ".into();
+        hosted.validate_for_save(&[]).unwrap();
+        assert_eq!(hosted.server.api_key, "saved-key");
+        let mut remote = Instance::remote();
+        remote.remote_url = "https://translate.example.com".into();
+        remote.validate_for_save(&[]).unwrap();
+        Instance::default().validate_for_save(&[]).unwrap();
+    }
+
+    #[test]
+    fn hosted_has_fixed_https_endpoint_optional_key_and_no_local_requirements() {
+        let mut hosted = Instance::hosted();
+        hosted.port = 0;
+        hosted.threads = 0;
+        hosted.server.url_prefix = "/untrusted".into();
+        hosted.validate(&[]).unwrap();
+        assert_eq!(hosted.url(), "https://libretranslate.com");
+        assert!(hosted.languages.is_empty());
+        hosted.server.api_key = "  saved-key  ".into();
+        hosted.validate(&[]).unwrap();
+        assert_eq!(hosted.server.api_key, "saved-key");
+        let root = tempfile::tempdir().unwrap();
+        save(root.path(), &[hosted.clone()]).unwrap();
+        assert_eq!(load(root.path()).unwrap(), vec![hosted]);
+
+        let mut local = Instance::default();
+        local.validate(&[Instance::hosted()]).unwrap();
+        let mut legacy = serde_json::to_value(&local).unwrap();
+        legacy.as_object_mut().unwrap().remove("kind");
+        assert!(
+            !serde_json::from_value::<Instance>(legacy)
+                .unwrap()
+                .is_hosted()
+        );
+    }
+
+    #[test]
+    fn remote_urls_preserve_prefixes_and_reject_credentials_and_non_http_schemes() {
+        let mut instance = Instance::remote();
+        for invalid in [
+            "",
+            "example.com",
+            "file:///tmp/server",
+            "https://user:secret@example.com",
+            "https://example.com?api_key=secret",
+            "https://example.com/#fragment",
+        ] {
+            instance.remote_url = invalid.into();
+            assert!(instance.validate(&[]).is_err(), "{invalid}");
+        }
+        for (input, expected) in [
+            (
+                " https://example.com/translate/ ",
+                "https://example.com/translate",
+            ),
+            ("http://192.168.1.10:5000/", "http://192.168.1.10:5000"),
+            ("http://[::1]:5000/lt/", "http://[::1]:5000/lt"),
+        ] {
+            instance.remote_url = input.into();
+            instance.validate(&[Instance::default()]).unwrap();
+            assert_eq!(instance.url(), expected);
+            assert!(instance.languages.is_empty());
+        }
+        let root = tempfile::tempdir().unwrap();
+        save(root.path(), &[instance.clone()]).unwrap();
+        assert_eq!(load_initialized(root.path()).unwrap(), vec![instance]);
+    }
+
     #[test]
     fn advanced_options_preserve_defaults_validate_prefixes_and_hide_secrets_from_arguments() {
         let mut instance = Instance::default();

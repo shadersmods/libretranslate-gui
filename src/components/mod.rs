@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 use dioxus_core::AttributeValue;
 use dioxus_primitives::{ContentSide, combobox, tooltip};
 mod flags;
+mod countries;
 mod icons;
 pub use icons::Icon;
 
@@ -105,6 +106,26 @@ pub struct Choice {
     pub value: String,
     pub label: String,
     pub disabled: bool,
+    pub details: Option<ChoiceDetails>,
+}
+#[derive(Clone, PartialEq)]
+pub struct ChoiceDetails {
+    pub country_code: Option<String>,
+    pub title: String,
+    pub metadata: Vec<ChoiceFact>,
+    pub status: ChoiceStatus,
+    pub search_text: String,
+}
+#[derive(Clone, PartialEq)]
+pub struct ChoiceFact {
+    pub label: String,
+    pub title: String,
+}
+#[derive(Clone, PartialEq)]
+pub struct ChoiceStatus {
+    pub label: String,
+    pub title: String,
+    pub tone: &'static str,
 }
 impl Choice {
     pub fn new(value: impl Into<String>, label: impl Into<String>) -> Self {
@@ -121,6 +142,7 @@ impl Choice {
             value,
             label: label.into(),
             disabled: false,
+            details: None,
         }
     }
     pub fn language(value: impl Into<String>, label: impl Into<String>) -> Self {
@@ -130,6 +152,7 @@ impl Choice {
             value,
             label: label.into(),
             disabled: false,
+            details: None,
         }
     }
 }
@@ -142,6 +165,7 @@ pub fn Dropdown(
     choices: Vec<Choice>,
     onchange: EventHandler<String>,
     #[props(default)] disabled: bool,
+    #[props(default)] described_by: Option<String>,
 ) -> Element {
     let selected = use_memo(move || Some(value()));
     let mut open = use_signal(|| false);
@@ -180,11 +204,11 @@ pub fn Dropdown(
         query: Some(query()), on_query_change: move |value| query.set(value),
         on_open_change: move |value: bool| open.set(value),
         on_value_change: move |value: Option<String>| { if let Some(value) = value { onchange.call(value); open.set(false); } },
-        button { class: "dx-select-trigger", id, r#type: "button", disabled, aria_label: accessible_label, aria_haspopup: "listbox", aria_expanded: open(), aria_controls: popup_id.clone(),
+        button { class: "dx-select-trigger", id, r#type: "button", disabled, aria_label: accessible_label, aria_describedby: described_by, aria_haspopup: "listbox", aria_expanded: open(), aria_controls: popup_id.clone(),
             onmousedown: move |_| pointer_open.set(Some(open())),
             onclick: move |_| { let was_open = pointer_open.take().unwrap_or(open()); query.set(String::new()); open.set(!was_open); },
             onkeydown: move |event| { if matches!(event.key(), Key::ArrowDown | Key::ArrowUp) { query.set(String::new()); open.set(true); event.prevent_default(); } },
-            span { class: "selected-option", if let Some(choice) = current { if let Some(code) = choice.icon { LanguageFlag { code } } span { "{choice.label}" } } else { "{label}" } }
+            span { class: "selected-option", if let Some(choice) = current { if let Some(details)=choice.details {RichChoiceLabel {label:choice.label,details,compact:true}} else {if let Some(code) = choice.icon { LanguageFlag { code } } span { "{choice.label}" }} } else { "{label}" } }
             Icon { kind: "chevron-down" }
         }
         div { class: "dx-select-popup", id: popup_id, "data-state": if open() { "open" } else { "closed" },
@@ -196,8 +220,8 @@ pub fn Dropdown(
             }
             combobox::ComboboxList { class: "dx-select-list", aria_label: label.clone(),
                 for (index, choice) in choices.into_iter().enumerate() {
-                    combobox::ComboboxOption::<String> { key: "{choice.value}", class: "dx-select-option", index, value: choice.value, text_value: choice.label.clone(), disabled: choice.disabled,
-                        span { class: "select-option-label", if let Some(code) = choice.icon { LanguageFlag { code } } "{choice.label}" }
+                    combobox::ComboboxOption::<String> { key: "{choice.value}", class: if choice.details.is_some() {"dx-select-option rich-select-option"} else {"dx-select-option"}, index, value: choice.value, text_value: choice.details.as_ref().map(|details|details.search_text.clone()).unwrap_or_else(||choice.label.clone()), disabled: choice.disabled,
+                        span { class: "select-option-label", if let Some(details)=choice.details {RichChoiceLabel {label:choice.label,details,compact:false}} else {if let Some(code) = choice.icon { LanguageFlag { code } } "{choice.label}"} }
                         combobox::ComboboxItemIndicator { Icon { kind: "check" } }
                     }
                 }
@@ -205,6 +229,25 @@ pub fn Dropdown(
             }
         }
     } }
+}
+
+#[component]
+fn RichChoiceLabel(label: String, details: ChoiceDetails, compact: bool) -> Element {
+    let flag = details.country_code.as_deref().and_then(countries::info);
+    rsx! {span {class:if compact {"select-rich-option compact"} else {"select-rich-option"},
+        if let Some((src, name))=flag {
+            img {class:"language-flag country-flag",src,alt:details.country_code.clone().unwrap_or_default(),title:name}
+        } else {Icon {kind:"globe"}}
+        span {class:"select-rich-content",
+            span {class:"select-rich-heading",
+                span {class:"select-rich-name",title:details.title,dir:"auto","{label}"}
+                span {class:"select-status", "data-tone":details.status.tone,title:details.status.title,"{details.status.label}"}
+            }
+            if !compact {span {class:"select-rich-facts",
+                for fact in details.metadata {span {class:"select-rich-fact",title:fact.title,"{fact.label}"}}
+            }}
+        }
+    }}
 }
 
 #[component]
