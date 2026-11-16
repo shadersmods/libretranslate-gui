@@ -188,7 +188,7 @@ The optional end-to-end test exercises downloading, installation, English/Spanis
 cargo test --locked real_runtime_translation -- --ignored --nocapture
 ```
 
-To exercise CUDA in that real download/translation/shutdown/restart test, set `LIBRETRANSLATE_GUI_TEST_CUDA=1` before running it. Shared test downloads stay in `.runtime-test/`, with an isolated temporary instance. Unit tests do not require a GPU or download models. Windows tests additionally verify that a launcher and its descendants are terminated together.
+To exercise CUDA in that real download/translation/shutdown/restart test, set `LIBRETRANSLATE_GUI_TEST_CUDA=1` before running it. Shared test downloads stay in `.runtime-test/`, with an isolated temporary instance. Unit tests do not require a GPU or download models. Windows tests verify that a launcher and its descendants are terminated together.
 
 For Windows UI checks, launch with an isolated preferences file and `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223`, then attach a browser checker to the local endpoint. This debugging endpoint is not enabled in normal launches.
 
