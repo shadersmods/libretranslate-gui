@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/shadersmods/libretranslate-gui/security/advisories/new
+    about: Use a private report, or email neo@shadersmods.com if private reporting is unavailable.
+  - name: Report a Code of Conduct concern
+    url: mailto:neo@shadersmods.com
+    about: Contact the maintainer privately about harassment or other conduct concerns.

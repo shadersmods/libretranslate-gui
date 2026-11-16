@@ -1,0 +1,97 @@
+name: Bug report
+description: Report something that is broken in LibreTranslate GUI.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For vulnerabilities, use [private reporting](https://github.com/shadersmods/libretranslate-gui/security/advisories/new), or email neo@shadersmods.com if that is unavailable. Do not include exploit details in a public issue.
+        Remove API keys, tokens, private text, and identifying paths from logs, screenshots, and sample files.
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Find it in Options → About. For a source build, include the commit if known.
+      placeholder: Version or commit
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: system-details
+    attributes:
+      label: OS version and architecture
+      placeholder: Windows 11 x64, macOS 15 arm64, or Ubuntu 22.04 x64
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: How did you install the app?
+      options:
+        - Portable ZIP or tar.gz
+        - MSI installer
+        - Unsigned MSIX
+        - Built from source
+        - Other or not sure
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include settings or a small, non-private sample file when needed.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happens instead? Include the exact error message if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: runtime-details
+    attributes:
+      label: Runtime and languages
+      description: For setup or translation problems, include the LibreTranslate version, selected languages, CPU or CUDA, and relevant instance settings. Leave out keys and tokens.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste the relevant section from Logs. Remove secrets and private text first.
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or additional context
+      description: Attach screenshots or a small sample file if they help reproduce the problem.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I removed secrets and private data from this report and its attachments.
+          required: true
+        - label: I agree to follow the [Code of Conduct](https://github.com/shadersmods/libretranslate-gui/blob/main/CODE_OF_CONDUCT.md).
+          required: true

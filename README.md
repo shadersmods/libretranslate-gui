@@ -115,6 +115,8 @@ Release filenames include **Portable** or **Installer**. Downloads without those
 
 [Open an issue](https://github.com/shadersmods/libretranslate-gui/issues) with your operating system, app version, and steps to reproduce the problem. Include the relevant log output after removing API keys, tokens, and private text.
 
+For code, documentation, or translation changes, read [Contributing](https://github.com/shadersmods/libretranslate-gui/blob/main/CONTRIBUTING.md). Project discussions follow the [Code of Conduct](https://github.com/shadersmods/libretranslate-gui/blob/main/CODE_OF_CONDUCT.md). Report vulnerabilities privately using the [security policy](https://github.com/shadersmods/libretranslate-gui/blob/main/SECURITY.md).
+
 ## Credits
 
 Built by [Neo](https://github.com/shadersmods/libretranslate-gui) with [Dioxus](https://github.com/DioxusLabs/dioxus). Translation is provided by [LibreTranslate](https://github.com/LibreTranslate/LibreTranslate) and [Argos Translate](https://github.com/argosopentech/argos-translate).
